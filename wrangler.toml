@@ -1,9 +1,7 @@
 name = "gracetracks"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = "dist"
-
-[vars]
-# Set secrets via Cloudflare Pages dashboard → Settings → Environment variables
-# VITE_SUPABASE_URL
-# VITE_SUPABASE_ANON_KEY
-# VITE_R2_PUBLIC_URL
+# pages_build_output_dir intentionally omitted — Cloudflare auto-detects dist/
+# for Vite projects and uses the standard build pipeline that injects dashboard
+# environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_R2_PUBLIC_URL).
+# When this key is present, Cloudflare switches to a BETA wrangler.toml build
+# path that ignores dashboard env vars, causing blank-page failures.

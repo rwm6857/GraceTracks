@@ -1,17 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+let _client = null
 
-if (!supabaseUrl) {
-  throw new Error(
-    'Missing VITE_SUPABASE_URL — set it in Cloudflare Pages › Settings › Environment Variables (Production) and trigger a new deploy.'
-  )
-}
-if (!supabaseAnonKey) {
-  throw new Error(
-    'Missing VITE_SUPABASE_ANON_KEY — set it in Cloudflare Pages › Settings › Environment Variables (Production) and trigger a new deploy.'
-  )
+function getClient() {
+  if (_client) return _client
+  const url = import.meta.env.VITE_SUPABASE_URL
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) {
+    throw new Error(
+      'Supabase credentials missing. ' +
+      'In Cloudflare Pages → Settings → Environment Variables, ' +
+      'add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for both ' +
+      'Production AND Preview environments, then redeploy.'
+    )
+  }
+  _client = createClient(url, key)
+  return _client
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Proxy so call sites (supabase.from(...)) work unchanged,
+// but the client is only constructed on first actual use.
+export const supabase = new Proxy(
+  {},
+  { get(_, prop) { return getClient()[prop] } }
+)
