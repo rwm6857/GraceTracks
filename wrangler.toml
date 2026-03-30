@@ -1,6 +1,8 @@
 name = "gracetracks"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = "dist"
+
+[assets]
+directory = "./dist"
 
 [vars]
 # Set secrets via Cloudflare Pages dashboard → Settings → Environment variables
