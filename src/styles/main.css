@@ -59,7 +59,7 @@ body {
 }
 
 .gt-navbar__brand {
-  font-family: 'Oswald', var(--gc-font-family);
+  font-family: var(--gc-font-brand);
   font-size: 22px;
   font-weight: 700;
   color: var(--gc-text);
@@ -110,13 +110,13 @@ body {
   color: var(--gc-text);
   background: var(--gc-surface-1);
   border: 1px solid var(--gc-separator);
-  border-radius: var(--radius-sm);
-  outline: none;
+  border-radius: var(--radius-md);
   transition: border-color var(--gc-dur-quick);
 }
 .gt-picker__search:focus {
   border-color: var(--gc-primary);
-  box-shadow: 0 0 0 var(--gc-focus-size) color-mix(in srgb, var(--gc-primary) 20%, transparent);
+  outline: var(--gc-focus-size) solid var(--gc-focus);
+  outline-offset: var(--gc-focus-offset);
 }
 
 .gt-picker__list-wrap {
