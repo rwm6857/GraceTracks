@@ -66,7 +66,7 @@ export async function renderMixer(container, slug) {
   const loadedChannels = []
   await Promise.all(
     STEMS.map(async (stem) => {
-      const url = `${r2Base}/gracetracks/${stemSlug}/${stem}.wav`
+      const url = `${r2Base}/tracks/${stemSlug}/${stem}.wav`
       const name = await engine.loadStem(stem, url)
       if (name) loadedChannels.push(stem)
     })
