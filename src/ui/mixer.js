@@ -142,7 +142,6 @@ export async function renderMixer(container, slug) {
         <input
           type="range"
           class="gt-strip__fader"
-          orient="vertical"
           min="0" max="1" step="0.01" value="0.75"
           aria-label="${escHtml(label)} volume"
         />

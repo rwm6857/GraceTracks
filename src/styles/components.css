@@ -172,15 +172,13 @@
 }
 
 .gt-strip__fader {
-  /* vertical range input via CSS writing-mode trick */
+  /* vertical range input — standardized CSS approach */
   writing-mode: vertical-lr;
   direction: rtl;
   width: 28px;
   height: 120px;
   cursor: pointer;
   accent-color: var(--gc-primary);
-  -webkit-appearance: slider-vertical;
-  appearance: slider-vertical;
 }
 
 /* dB readout */
