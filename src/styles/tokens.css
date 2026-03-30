@@ -1,0 +1,157 @@
+/* ==========================================================================
+   GraceChords Design Tokens — verbatim copy
+   Shared between GraceChords and GraceTracks.
+   DO NOT edit directly; copy changes from gracechords/src/styles/tokens.css
+   ========================================================================== */
+
+:root {
+  /* ===== TYPOGRAPHY ===== */
+  --gc-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --gc-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --gc-font-lyrics: "Noto Sans", "Inter 18", system-ui, sans-serif;
+  --gc-font-chords: "Noto Sans Mono", "Fira Mono", ui-monospace, monospace;
+
+  /* Type scale */
+  --gc-font-title: clamp(32px, 4vw, 36px);
+  --gc-font-h2: 20px;
+  --gc-font-body: 16px;
+  --gc-font-sub: 14px;
+  --gc-font-cap: 12px;
+
+  --gc-weight-title: 700;
+  --gc-weight-h2: 700;
+  --gc-weight-body: 450;
+  --gc-weight-sub: 450;
+  --gc-weight-cap: 450;
+
+  --gc-lh-title: 1.15;
+  --gc-lh-h2: 1.25;
+  --gc-lh-body: 1.55;
+  --gc-lh-sub: 1.4;
+  --gc-lh-cap: 1.35;
+
+  /* ===== SPACING ===== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* ===== RADII ===== */
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ===== CONTROLS ===== */
+  --gc-control-h: 36px;
+  --gc-control-h-mobile: 44px;
+  --gc-btn-gap: 6px;
+  --gc-btn-pad-y: 6px;
+  --gc-btn-pad-x: 12px;
+  --gc-btn-font-size: 15px;
+  --gc-btn-pad-y-sm: 5px;
+  --gc-btn-pad-x-sm: 9px;
+  --gc-btn-font-size-sm: 13px;
+  --gc-btn-pad-y-lg: 8px;
+  --gc-btn-pad-x-lg: 14px;
+  --gc-btn-font-size-lg: 16px;
+  --gc-btn-icon-pad: 6px;
+  --gc-btn-icon-size: 16px;
+  --gc-mobile-dock-z: 120;
+  --gc-mobile-sheet-z: 170;
+  --gc-mobile-dim-opacity: 0.48;
+
+  /* ===== MOTION ===== */
+  --gc-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --gc-dur-quick: 180ms;
+  --gc-dur: 220ms;
+
+  /* ===== FOCUS ===== */
+  --gc-focus-size: 2px;
+  --gc-focus-offset: 2px;
+
+  /* ===== COLORS — Light (warm worship palette) ===== */
+  --gc-primary: #b8610a;
+  --gc-primary-hover: #9e5209;
+  --gc-success: #34C759;
+  --gc-warning: #FF9500;
+  --gc-danger: #FF3B30;
+
+  --gc-indigo: #5856D6;
+  --gc-purple: #AF52DE;
+  --gc-teal: #5AC8FA;
+  --gc-yellow: #FFCC00;
+
+  /* Surfaces */
+  --gc-bg: #faf7f2;
+  --gc-surface-1: #ffffff;
+  --gc-surface-2: #f5f1ea;
+  --gc-surface-3: #ede8de;
+
+  /* Text */
+  --gc-text: #1c1410;
+  --gc-text-secondary: #6b5c4e;
+  --gc-text-tertiary: #9c8878;
+
+  /* Borders */
+  --gc-separator: #ddd5c8;
+
+  /* Derived */
+  --gc-link: var(--gc-primary);
+  --gc-focus: var(--gc-primary);
+  --gc-selection-bg: color-mix(in srgb, #b8610a 12%, #faf7f2);
+
+  /* Shadows */
+  --gc-shadow-1: 0 1px 4px rgba(60, 30, 10, 0.08);
+  --gc-shadow-2: 0 4px 16px rgba(60, 30, 10, 0.12);
+  --gc-shadow-3: 0 16px 44px rgba(60, 30, 10, 0.18);
+
+  /* Overlays */
+  --gc-overlay: rgba(0, 0, 0, 0.45);
+  --gc-shadow-drawer: -24px 0 48px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== DARK THEME ===== */
+[data-theme="dark"] {
+  --gc-primary: #d4843a;
+  --gc-primary-hover: #e0923f;
+  --gc-success: #30D158;
+  --gc-warning: #FF9F0A;
+  --gc-danger: #FF453A;
+
+  --gc-indigo: #5E5CE6;
+  --gc-purple: #BF5AF2;
+  --gc-teal: #64D2FF;
+  --gc-yellow: #FFD60A;
+
+  --gc-bg: #100e0b;
+  --gc-surface-1: #1a1612;
+  --gc-surface-2: #231e18;
+  --gc-surface-3: #2e271f;
+
+  --gc-text: #f0ebe3;
+  --gc-text-secondary: #a89484;
+  --gc-text-tertiary: #6e5e52;
+
+  --gc-separator: #2e261e;
+
+  --gc-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --gc-shadow-2: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --gc-shadow-3: 0 18px 54px rgba(0, 0, 0, 0.65);
+
+  --gc-selection-bg: color-mix(in srgb, #d4843a 16%, #1a1612);
+
+  --gc-overlay: rgba(0, 0, 0, 0.6);
+  --gc-shadow-drawer: -24px 0 48px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gc-dur-quick: 0ms;
+    --gc-dur: 0ms;
+  }
+}
