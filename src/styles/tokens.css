@@ -10,8 +10,9 @@
     Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   --gc-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  --gc-font-lyrics: "Noto Sans", "Inter 18", system-ui, sans-serif;
+  --gc-font-lyrics: "Noto Sans", "Inter", system-ui, sans-serif;
   --gc-font-chords: "Noto Sans Mono", "Fira Mono", ui-monospace, monospace;
+  --gc-font-brand:  "Oswald", sans-serif;
 
   /* Type scale */
   --gc-font-title: clamp(32px, 4vw, 36px);

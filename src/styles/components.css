@@ -10,13 +10,14 @@
   align-items: center;
   justify-content: center;
   gap: var(--gc-btn-gap);
+  height: var(--gc-control-h);
   padding: var(--gc-btn-pad-y) var(--gc-btn-pad-x);
   font-family: var(--gc-font-family);
   font-size: var(--gc-btn-font-size);
   font-weight: 500;
   line-height: 1;
-  border: none;
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
@@ -46,11 +47,10 @@
 /* Ghost */
 .gc-btn--ghost {
   background: transparent;
-  color: var(--gc-text);
-  border: 1px solid var(--gc-separator);
+  color: var(--gc-primary);
 }
 .gc-btn--ghost:hover {
-  background: var(--gc-surface-2);
+  background: color-mix(in srgb, var(--gc-primary) 10%, transparent);
 }
 
 /* Danger */
@@ -73,6 +73,10 @@
   font-size: var(--gc-btn-font-size-lg);
 }
 
+@media (max-width: 640px) {
+  .gc-btn { height: var(--gc-control-h-mobile); }
+}
+
 /* Active (toggle) state */
 .gc-btn.is-active,
 .gc-btn[aria-pressed="true"] {
@@ -85,7 +89,8 @@
 .gc-card {
   background: var(--gc-surface-1);
   border: 1px solid var(--gc-separator);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   box-shadow: var(--gc-shadow-1);
   overflow: hidden;
 }
@@ -294,7 +299,7 @@
   justify-content: center;
   background: var(--gc-overlay);
   backdrop-filter: blur(4px);
-  font-family: 'Oswald', var(--gc-font-family);
+  font-family: var(--gc-font-brand);
   font-size: clamp(80px, 20vw, 160px);
   font-weight: 700;
   color: #fff;
