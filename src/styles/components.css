@@ -246,11 +246,89 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-3);
   background: var(--gc-surface-2);
   border-top: 1px solid var(--gc-separator);
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+/* Seek bar — spans full width above the controls */
+.gt-transport__seek-row {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  padding-top: var(--space-1);
+}
+
+.gt-transport__seek {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--gc-surface-3);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  outline: none;
+}
+.gt-transport__seek:focus-visible {
+  outline: var(--gc-focus-size) solid var(--gc-focus);
+  outline-offset: 3px;
+}
+
+/* Webkit thumb */
+.gt-transport__seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gc-primary);
+  cursor: pointer;
+  margin-top: -5px;
+  transition: transform var(--gc-dur-quick) var(--gc-ease),
+              box-shadow var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-transport__seek::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gc-primary) 20%, transparent);
+}
+.gt-transport__seek:active::-webkit-slider-thumb {
+  transform: scale(1.35);
+}
+
+/* Webkit track (background gradient provided via JS) */
+.gt-transport__seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+}
+
+/* Firefox track */
+.gt-transport__seek::-moz-range-track {
+  height: 4px;
+  background: var(--gc-surface-3);
+  border-radius: var(--radius-pill);
+}
+
+/* Firefox progress fill */
+.gt-transport__seek::-moz-range-progress {
+  height: 4px;
+  background: var(--gc-primary);
+  border-radius: var(--radius-pill);
+}
+
+/* Firefox thumb */
+.gt-transport__seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gc-primary);
+  border: none;
+  cursor: pointer;
+  transition: transform var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-transport__seek::-moz-range-thumb:hover {
+  transform: scale(1.25);
 }
 
 .gt-transport__group {
@@ -271,6 +349,12 @@
   font-size: var(--gc-font-body);
   font-weight: 600;
   color: var(--gc-text);
+  min-width: 3ch;
+}
+
+.gt-transport__duration {
+  font-size: var(--gc-font-body);
+  color: var(--gc-text-secondary);
   min-width: 3ch;
 }
 
