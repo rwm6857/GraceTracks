@@ -17,7 +17,8 @@
 // self.__WB_MANIFEST
 
 // — Custom SW logic (optional) —
-// Example: claim clients immediately on activation
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
-})
+// NOTE: Do NOT call self.clients.claim() here.
+// On iOS Safari, clients.claim() forces an immediate page reload when the SW
+// activates, causing the double-load / "A problem repeatedly occurred" crash.
+// SPA routing works without it: Cloudflare's _redirects handles first-visit
+// navigation, and the SW takes control on the next navigation naturally.

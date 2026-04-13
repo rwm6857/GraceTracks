@@ -67,8 +67,6 @@ export async function renderMixer(container, slug) {
 
   // — Engine setup
   const engine = new AudioEngine()
-  const metronome = new Metronome(engine.context ?? new AudioContext(), null)
-  // We'll patch metronome destination after engine context is created
 
   // — Probe + load stems
   let stemsCompleted = 0

@@ -84,7 +84,11 @@ export class AudioEngine {
     const arrayBuffer = await res.arrayBuffer()
     let audioBuffer
     try {
-      audioBuffer = await this._ctx.decodeAudioData(arrayBuffer)
+      // Use callback form for iOS Safari compatibility — the Promise-based
+      // overload has known bugs on older iOS versions.
+      audioBuffer = await new Promise((resolve, reject) => {
+        this._ctx.decodeAudioData(arrayBuffer, resolve, reject)
+      })
     } catch {
       return null
     }
