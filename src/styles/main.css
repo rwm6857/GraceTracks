@@ -12,6 +12,11 @@
   padding: 0;
 }
 
+/* Ensure the HTML hidden attribute always hides elements even when a class
+   sets display (e.g. display:flex on .gt-main). UA stylesheets omit
+   !important so author display rules would otherwise win. */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
 }
@@ -34,7 +39,8 @@ body {
 #app {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;       /* exact viewport — prevents vertical page scroll */
+  overflow: hidden;     /* clips any overflow so the page itself never scrolls */
 }
 
 .gt-main {

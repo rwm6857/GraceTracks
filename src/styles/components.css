@@ -112,7 +112,7 @@
   flex-direction: row;
   gap: var(--space-3);
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;   /* strips must not push the page taller than their container */
   padding: var(--space-4);
   align-items: stretch;
   flex: 1;
@@ -133,7 +133,9 @@
   padding: var(--space-2) var(--space-3) var(--space-3);
   min-width: 72px;
   width: 72px;
+  min-height: 0;        /* allow the strip to shrink to its container height */
   flex-shrink: 0;
+  overflow: hidden;     /* clip any child that still overflows after shrinking */
   box-shadow: var(--gc-shadow-1);
   scroll-snap-align: start;
   position: relative;
@@ -172,13 +174,14 @@
   margin: 2px 0;
 }
 
-/* Vertical fader */
+/* Vertical fader — grows to fill the strip's remaining height.
+   No min-height: the strip height is driven by the viewport, not the fader. */
 .gt-strip__fader-wrap {
   flex: 1;
+  min-height: 0;        /* allow shrinking below content size */
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 80px;
   padding: var(--space-2) 0;
 }
 
