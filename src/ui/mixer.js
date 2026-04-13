@@ -12,7 +12,6 @@ const CHANNEL_COLORS = {
   elec:    '#22c55e',
   keys:    '#3b82f6',
   synth:   '#06b6d4',
-  '2nd':   '#38bdf8',
   vox:     null,       // uses gc-text (inherits from theme)
   strings: '#a855f7',
   click:   '#94a3b8',
@@ -26,7 +25,6 @@ const CHANNEL_LABELS = {
   elec:    'Electric',
   keys:    'Keys',
   synth:   'Synth',
-  '2nd':   'Keys 2',
   vox:     'Vocals',
   strings: 'Strings',
   click:   'Click',
@@ -171,6 +169,29 @@ export async function renderMixer(container, slug) {
     stripsWrap.appendChild(strip)
   }
   container.appendChild(stripsWrap)
+
+  // Master volume strip
+  const masterStrip = document.createElement('div')
+  masterStrip.className = 'gt-strip gt-strip--master'
+  masterStrip.innerHTML = `
+    <div class="gt-strip__accent" style="background:#e2e8f0"></div>
+    <div class="gt-strip__label">Master</div>
+    <div class="gt-strip__fader-wrap">
+      <input
+        type="range"
+        class="gt-strip__fader"
+        min="0" max="1" step="0.01" value="0.75"
+        aria-label="Master volume"
+      />
+    </div>
+    <div class="gt-strip__db">0 dB</div>
+  `
+  masterStrip.querySelector('.gt-strip__fader').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value)
+    engine.setMasterVolume(v)
+    masterStrip.querySelector('.gt-strip__db').textContent = faderToDb(v)
+  })
+  container.appendChild(masterStrip)
 
   // Transport
   const { el: transportEl } = createTransport({

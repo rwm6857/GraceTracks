@@ -20,6 +20,7 @@
 const STEM_ALIASES = {
   drums: ['drum'],
   perc:  ['percussion'],
+  synth: ['2nd'],
   vox:   ['vocals', 'vocal'],
 }
 
