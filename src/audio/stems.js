@@ -2,27 +2,39 @@
  * resolveStemUrl
  *
  * Probes for the best available format of a stem file.
- * Tries .m4a first (smaller / AAC), falls back to .wav.
- * Returns the resolved URL string, or null if neither format exists.
+ * For each filename candidate (canonical ID first, then known aliases) it
+ * tries .m4a before .wav, returning the first URL that responds 200.
+ * Returns null if nothing is found — the mixer will omit that channel strip.
+ *
+ * Alias map covers real-world R2 uploads that pre-date the canonical IDs:
+ *   drums → drum
+ *   perc  → percussion
+ *   vox   → vocals / vocal
  *
  * @param {string} r2Base   - Base URL, e.g. https://assets.gracechords.com
  * @param {string} stemSlug - Subdirectory for this song's stems
  * @param {string} stemId   - Canonical stem ID (drums, perc, bass, …, vox, click, ambient)
  * @returns {Promise<string|null>}
  */
+
+const STEM_ALIASES = {
+  drums: ['drum'],
+  perc:  ['percussion'],
+  vox:   ['vocals', 'vocal'],
+}
+
 export async function resolveStemUrl(r2Base, stemSlug, stemId) {
-  const m4aUrl = `${r2Base}/tracks/${stemSlug}/${stemId}.m4a`
-  const wavUrl = `${r2Base}/tracks/${stemSlug}/${stemId}.wav`
+  const candidates = [stemId, ...(STEM_ALIASES[stemId] ?? [])]
 
-  try {
-    const res = await fetch(m4aUrl, { method: 'HEAD' })
-    if (res.ok) return m4aUrl
-  } catch { /* network error — try wav */ }
-
-  try {
-    const res = await fetch(wavUrl, { method: 'HEAD' })
-    if (res.ok) return wavUrl
-  } catch { /* network error */ }
+  for (const id of candidates) {
+    for (const ext of ['m4a', 'wav']) {
+      const url = `${r2Base}/tracks/${stemSlug}/${id}.${ext}`
+      try {
+        const res = await fetch(url, { method: 'HEAD' })
+        if (res.ok) return url
+      } catch { /* network error — keep trying */ }
+    }
+  }
 
   return null
 }
