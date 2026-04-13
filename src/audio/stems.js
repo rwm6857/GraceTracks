@@ -40,5 +40,6 @@ export async function resolveStemUrl(r2Base, stemSlug, stemId) {
     }
   }
 
+  console.warn(`[GraceTracks] stem "${stemId}" not found in "${stemSlug}" — channel will be omitted`)
   return null
 }
