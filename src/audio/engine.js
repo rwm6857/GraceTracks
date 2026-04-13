@@ -60,18 +60,20 @@ export class AudioEngine {
    * Try to load a stem. Returns the channel name if loaded, null if 404.
    * @param {string} stemName
    * @param {string} url
+   * @param {Response} [preloadedResponse] - already-fetched Response to use instead of re-fetching
    */
-  async loadStem(stemName, url) {
+  async loadStem(stemName, url, preloadedResponse) {
     this._ensureContext()
 
-    // Check existence without downloading the full file first
-    let res
-    try {
-      res = await fetch(url)
-    } catch {
-      return null
+    let res = preloadedResponse
+    if (!res) {
+      try {
+        res = await fetch(url)
+      } catch {
+        return null
+      }
+      if (!res.ok) return null
     }
-    if (!res.ok) return null
 
     const arrayBuffer = await res.arrayBuffer()
     let audioBuffer
