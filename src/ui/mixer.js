@@ -174,6 +174,7 @@ export async function renderMixer(container, slug) {
     strip.innerHTML = `
       <div class="gt-strip__accent" style="${color ? `background:${color}` : ''}"></div>
       <div class="gt-strip__label">${escHtml(label)}</div>
+      <img class="gt-strip__icon" src="/icons/channels/${name}.svg" alt="" aria-hidden="true" draggable="false"/>
       <div class="gt-strip__fader-wrap">
         <input
           type="range"

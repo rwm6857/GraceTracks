@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- expanding arcs (soundwave / ambient) -->
+  <!-- innermost arc -->
+  <path d="M24 18 Q30 24 24 30"/>
+  <!-- middle arc -->
+  <path d="M24 12 Q36 24 24 36"/>
+  <!-- outer arc -->
+  <path d="M24 6 Q42 24 24 42"/>
+  <!-- mirror left side (softer/reflected) -->
+  <path d="M24 18 Q18 24 24 30" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <path d="M24 12 Q12 24 24 36" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <!-- center dot (source) -->
+  <circle cx="24" cy="24" r="2.5" fill="#818cf8" stroke="none"/>
+</svg>

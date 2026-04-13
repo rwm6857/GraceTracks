@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- metronome body (trapezoid) -->
+  <path d="M12 44 L14 10 L34 10 L36 44 Z"/>
+  <!-- top cap -->
+  <path d="M14 10 Q24 6 34 10"/>
+  <!-- scale markings -->
+  <line x1="17" y1="18" x2="22" y2="18" stroke-width="1.5"/>
+  <line x1="16" y1="24" x2="22" y2="24" stroke-width="1.5"/>
+  <line x1="15" y1="30" x2="22" y2="30" stroke-width="1.5"/>
+  <line x1="15" y1="36" x2="21" y2="36" stroke-width="1.5"/>
+  <!-- pendulum arm (swung to right) -->
+  <line x1="24" y1="40" x2="32" y2="16" stroke-width="2.5"/>
+  <!-- pendulum weight -->
+  <circle cx="32" cy="14" r="3" fill="#94a3b8" stroke="none"/>
+  <!-- pivot point -->
+  <circle cx="24" cy="40" r="2.5" fill="#94a3b8" stroke="none"/>
+</svg>

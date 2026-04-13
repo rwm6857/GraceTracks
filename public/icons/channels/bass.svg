@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#eab308" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- neck -->
+  <rect x="20" y="4" width="7" height="22" rx="3.5"/>
+  <!-- tuning pegs (4, pairs on each side) -->
+  <circle cx="18" cy="8" r="2" fill="#eab308" stroke="none"/>
+  <circle cx="18" cy="13" r="2" fill="#eab308" stroke="none"/>
+  <circle cx="29" cy="8" r="2" fill="#eab308" stroke="none"/>
+  <circle cx="29" cy="13" r="2" fill="#eab308" stroke="none"/>
+  <!-- body (P-bass style rounded) -->
+  <path d="M14 26 C8 26 6 32 8 37 C10 42 16 44 22 43 C26 42 30 40 32 36 C35 30 38 26 38 26 C38 22 34 20 30 20 L20 20 C17 20 14 22 14 26 Z"/>
+</svg>

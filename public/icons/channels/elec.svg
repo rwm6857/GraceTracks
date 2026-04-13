@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- neck (angled, strat-style) -->
+  <path d="M18 4 L24 4 L26 26 L16 26 Z" rx="2"/>
+  <!-- tuning pegs (6, 3 per side) -->
+  <circle cx="17" cy="6" r="1.8" fill="#22c55e" stroke="none"/>
+  <circle cx="17" cy="10" r="1.8" fill="#22c55e" stroke="none"/>
+  <circle cx="17" cy="14" r="1.8" fill="#22c55e" stroke="none"/>
+  <circle cx="25" cy="6" r="1.8" fill="#22c55e" stroke="none"/>
+  <circle cx="25" cy="10" r="1.8" fill="#22c55e" stroke="none"/>
+  <circle cx="25" cy="14" r="1.8" fill="#22c55e" stroke="none"/>
+  <!-- strat body (offset double cutaway) -->
+  <path d="M10 26 C6 26 4 30 6 35 C8 40 14 44 20 43 L28 43 C34 44 40 40 42 35 C44 30 42 26 38 26 C36 24 32 22 28 24 L28 26 L14 26 L14 24 C10 22 12 26 10 26 Z"/>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- synth chassis -->
+  <rect x="3" y="8" width="42" height="32" rx="4"/>
+  <!-- control panel divider -->
+  <line x1="3" y1="22" x2="45" y2="22" stroke-width="1.5"/>
+  <!-- knobs (3 circles in top panel) -->
+  <circle cx="13" cy="15" r="4"/>
+  <circle cx="24" cy="15" r="4"/>
+  <circle cx="35" cy="15" r="4"/>
+  <!-- knob indicators -->
+  <line x1="13" y1="11" x2="13" y2="13" stroke-width="2"/>
+  <line x1="24" y1="11" x2="24" y2="13" stroke-width="2"/>
+  <line x1="35" y1="11" x2="35" y2="13" stroke-width="2"/>
+  <!-- mini keyboard keys (bottom panel) -->
+  <line x1="11" y1="22" x2="11" y2="40"/>
+  <line x1="19" y1="22" x2="19" y2="40"/>
+  <line x1="27" y1="22" x2="27" y2="40"/>
+  <line x1="35" y1="22" x2="35" y2="40"/>
+  <!-- black keys (mini) -->
+  <rect x="7" y="22" width="5" height="11" rx="1.5" fill="#06b6d4"/>
+  <rect x="23" y="22" width="5" height="11" rx="1.5" fill="#06b6d4"/>
+  <rect x="31" y="22" width="5" height="11" rx="1.5" fill="#06b6d4"/>
+</svg>
