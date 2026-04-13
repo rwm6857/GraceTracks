@@ -45,14 +45,13 @@ async function render() {
   const main = document.createElement('main')
   main.id = 'gt-main'
   main.className = 'gt-main'
+  app.appendChild(main)
 
   if (route.view === 'mixer') {
     await renderMixer(main, route.slug)
   } else {
     await renderSongPicker(main)
   }
-
-  app.appendChild(main)
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

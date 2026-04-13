@@ -20,7 +20,7 @@
 const STEM_ALIASES = {
   drums: ['drum'],
   perc:  ['percussion'],
-  synth: ['2nd'],
+  synth: ['2nd', '2nd keys', '2nd-keys'],
   vox:   ['vocals', 'vocal'],
 }
 
@@ -29,7 +29,7 @@ export async function resolveStemUrl(r2Base, stemSlug, stemId) {
 
   for (const id of candidates) {
     for (const ext of ['m4a', 'wav']) {
-      const url = `${r2Base}/tracks/${stemSlug}/${id}.${ext}`
+      const url = `${r2Base}/tracks/${stemSlug}/${encodeURIComponent(id)}.${ext}`
       try {
         const res = await fetch(url, { method: 'HEAD' })
         if (res.ok) return url
