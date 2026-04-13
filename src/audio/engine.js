@@ -54,6 +54,12 @@ export class AudioEngine {
     return this._ctx
   }
 
+  /** Resume a browser-suspended AudioContext (e.g. after tab backgrounding). */
+  resumeIfSuspended() {
+    if (this._ctx?.state === 'suspended') return this._ctx.resume()
+    return Promise.resolve()
+  }
+
   // ─── Loading ────────────────────────────────────────────────────────────────
 
   /**

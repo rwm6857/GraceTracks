@@ -28,29 +28,53 @@ function getRoute() {
   return { view: 'picker' }
 }
 
-let currentView = null
+let currentView  = null
+let _mixerSlug    = null  // slug of the currently-loaded mixer session
+let _mixerEl      = null  // mixer <main> element (kept in DOM, hidden when picker is shown)
+let _mixerCleanup = null  // cleanup fn returned by renderMixer
+let _pickerEl     = null  // picker <main> element (kept in DOM, hidden when mixer is shown)
 
 async function render() {
   const route = getRoute()
-
-  // Avoid full re-render if same view + same slug
   const key = route.view === 'mixer' ? `mixer:${route.slug}` : 'picker'
   if (key === currentView) return
   currentView = key
 
-  // Clear main content
-  const existing = document.getElementById('gt-main')
-  if (existing) existing.remove()
-
-  const main = document.createElement('main')
-  main.id = 'gt-main'
-  main.className = 'gt-main'
-  app.appendChild(main)
-
   if (route.view === 'mixer') {
-    await renderMixer(main, route.slug)
+    // Hide picker while mixer is shown
+    if (_pickerEl) _pickerEl.hidden = true
+
+    // Same song already loaded — just show the existing mixer, no reload
+    if (_mixerSlug === route.slug && _mixerEl) {
+      _mixerEl.hidden = false
+      return
+    }
+
+    // Different song — dispose old session and remove its element
+    if (_mixerCleanup) { _mixerCleanup(); _mixerCleanup = null }
+    if (_mixerEl)      { _mixerEl.remove(); _mixerEl = null }
+    _mixerSlug = null
+
+    _mixerEl = document.createElement('main')
+    _mixerEl.id = 'gt-main'
+    _mixerEl.className = 'gt-main'
+    app.appendChild(_mixerEl)
+    _mixerSlug = route.slug
+    _mixerCleanup = await renderMixer(_mixerEl, route.slug) ?? (() => {})
+
   } else {
-    await renderSongPicker(main)
+    // Hide mixer while picker is shown
+    if (_mixerEl) _mixerEl.hidden = true
+
+    if (_pickerEl) {
+      _pickerEl.hidden = false
+    } else {
+      _pickerEl = document.createElement('main')
+      _pickerEl.id = 'gt-main-picker'
+      _pickerEl.className = 'gt-main'
+      app.appendChild(_pickerEl)
+      await renderSongPicker(_pickerEl)
+    }
   }
 }
 
@@ -63,14 +87,10 @@ function boot() {
   document.getElementById('nav-home').addEventListener('click', (e) => {
     e.preventDefault()
     history.pushState({}, '', '/')
-    currentView = null
     render()
   })
 
-  window.addEventListener('popstate', () => {
-    currentView = null
-    render()
-  })
+  window.addEventListener('popstate', () => render())
 
   render()
 }
