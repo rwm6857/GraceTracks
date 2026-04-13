@@ -8,7 +8,13 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' does NOT inject skipWaiting()/clientsClaim() into the generated SW.
+      // 'autoUpdate' hardcodes both in the generated SW (regardless of workbox config),
+      // causing iOS Safari to force-reload the page when the SW activates — the source
+      // of the double-load / "A problem repeatedly occurred" crash.
+      // With 'prompt' and no custom update UI in this vanilla JS app, the new SW simply
+      // waits until all tabs are closed before activating. Silent, safe updates.
+      registerType: 'prompt',
       strategies: 'generateSW',
       manifest: false, // we supply our own manifest.webmanifest in /public
       workbox: {
