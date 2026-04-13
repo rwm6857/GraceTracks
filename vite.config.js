@@ -14,6 +14,8 @@ export default defineConfig({
       workbox: {
         // App shell: cache-first
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        // Serve precached index.html for any navigate request when offline (SPA routing)
+        navigateFallback: '/index.html',
         // Stem WAV files: cache on first play, then serve from cache
         runtimeCaching: [
           {

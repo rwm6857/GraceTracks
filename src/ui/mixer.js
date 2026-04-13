@@ -55,10 +55,10 @@ export async function renderMixer(container, slug) {
     container.innerHTML = `
       <div class="gt-mixer-error">
         <p>Song not found.</p>
-        <a href="#/" class="gc-btn gc-btn--ghost">Back to songs</a>
+        <a href="/" class="gc-btn gc-btn--ghost">Back to songs</a>
       </div>
     `
-    return
+    return () => {}
   }
 
   const song = songs[0]
@@ -115,15 +115,50 @@ export async function renderMixer(container, slug) {
     container.innerHTML = `
       <div class="gt-mixer-error">
         <p>No stems found for this song.</p>
-        <a href="#/" class="gc-btn gc-btn--ghost">Back to songs</a>
+        <a href="/" class="gc-btn gc-btn--ghost">Back to songs</a>
       </div>
     `
-    return
+    return () => {}
   }
 
   // Patch metronome with the now-created context
   const metro = new Metronome(engine.context, engine.context.destination)
   const metersInst = new Meters(engine)
+
+  // — Media Session (lock screen / notification controls)
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: song.artist ?? '',
+      artwork: [
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      ],
+    })
+    navigator.mediaSession.setActionHandler('play', () => {
+      engine.resumeIfSuspended().then(() => engine.play(engine.currentTime))
+      navigator.mediaSession.playbackState = 'playing'
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      engine.pause()
+      navigator.mediaSession.playbackState = 'paused'
+    })
+    navigator.mediaSession.setActionHandler('seekto', (d) => {
+      if (d.seekTime != null) engine.seekTo(d.seekTime)
+    })
+    navigator.mediaSession.setActionHandler('seekbackward', (d) => {
+      engine.seekTo(Math.max(0, engine.currentTime - (d.seekOffset ?? 10)))
+    })
+    navigator.mediaSession.setActionHandler('seekforward', (d) => {
+      engine.seekTo(Math.min(engine.duration, engine.currentTime + (d.seekOffset ?? 10)))
+    })
+  }
+
+  // — Resume AudioContext when tab returns to foreground
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') engine.resumeIfSuspended()
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
 
   // — Build mixer UI
   container.innerHTML = ''
@@ -143,10 +178,17 @@ export async function renderMixer(container, slug) {
         rel="noopener noreferrer"
         class="gc-btn gc-btn--ghost gc-btn--sm"
       >View on GraceChords ↗</a>
-      <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm">← Songs</a>
+      <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm gt-back-link">← Songs</a>
     </div>
   `
   container.appendChild(header)
+
+  // "← Songs" uses SPA navigation instead of a full-page reload
+  header.querySelector('.gt-back-link').addEventListener('click', (e) => {
+    e.preventDefault()
+    history.pushState({}, '', '/')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
 
   // Count-in overlay
   const countInOverlay = document.createElement('div')
@@ -226,11 +268,17 @@ export async function renderMixer(container, slug) {
   stripsWrap.appendChild(masterStrip)
 
   // Transport
-  const { el: transportEl } = createTransport({
+  const { el: transportEl, destroy: destroyTransport } = createTransport({
     engine,
     metronome: metro,
     meters: metersInst,
     song,
+    onPlay: () => {
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
+    },
+    onPause: () => {
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
+    },
     onCountInBeat: ({ beat, total }) => {
       countInOverlay.hidden = false
       countInOverlay.textContent = beat
@@ -291,16 +339,19 @@ export async function renderMixer(container, slug) {
     }
   }
 
-  // — Cleanup when navigating away
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(container)) {
-      engine.dispose()
-      metro.stop()
-      metersInst.stop()
-      observer.disconnect()
+  // — Return cleanup function (called by main.js when navigating to a different song)
+  return function cleanup() {
+    engine.dispose()
+    metro.stop()
+    metersInst.stop()
+    destroyTransport()
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    if ('mediaSession' in navigator) {
+      for (const action of ['play', 'pause', 'seekto', 'seekbackward', 'seekforward']) {
+        navigator.mediaSession.setActionHandler(action, null)
+      }
     }
-  })
-  observer.observe(document.body, { childList: true, subtree: true })
+  }
 }
 
 function faderToDb(v) {
