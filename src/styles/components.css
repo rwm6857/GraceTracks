@@ -188,6 +188,7 @@
   color: var(--gc-text-tertiary);
   min-width: 40px;
   text-align: center;
+  white-space: nowrap;
 }
 
 /* Meter bar (hidden unless meters are active) */
