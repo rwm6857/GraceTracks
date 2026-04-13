@@ -6,9 +6,22 @@
  *
  * Channel signal flow:
  *   AudioBufferSourceNode -> GainNode (volume) -> AnalyserNode -> masterGain -> destination
+ *
+ * iOS memory note:
+ * Decoded AudioBuffers are uncompressed float32 PCM. A typical 5-minute stereo
+ * stem at 44100 Hz ≈ 100 MB; 8 stems ≈ 800 MB, which exceeds iOS Safari's
+ * per-tab memory limit and causes a WebKit process crash ("webpage crashed").
+ * On iOS we therefore: (a) request a 22050 Hz AudioContext to halve buffer
+ * sizes during decoding, and (b) downmix stereo → mono after decoding to halve
+ * again. Combined: up to 4× reduction (800 MB → ~200 MB).
  */
 
 export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'click', 'ambient']
+
+// Detect iOS / iPadOS (covers iPhone, iPod, and iPad on iOS 13+ which
+// reports 'MacIntel' platform but has touch points).
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
 // Fader scale: 0-1 input range maps to:
 //   0   → -∞ dB (silence)
@@ -44,7 +57,11 @@ export class AudioEngine {
   // ─── Context ─────────────────────────────────────────────────────────────────
   _ensureContext() {
     if (!this._ctx) {
-      this._ctx = new AudioContext()
+      // On iOS request 22050 Hz to halve the decoded PCM buffer sizes.
+      // iOS may ignore the hint and use the hardware rate (44100/48000 Hz),
+      // in which case the mono downmix in loadStem still gives a 2× reduction.
+      const ctxOpts = _isIOS ? { sampleRate: 22050 } : {}
+      this._ctx = new AudioContext(ctxOpts)
       this._masterGain = this._ctx.createGain()
       this._masterGain.connect(this._ctx.destination)
     }
@@ -91,6 +108,22 @@ export class AudioEngine {
       })
     } catch {
       return null
+    }
+
+    // On iOS, downmix stereo → mono to halve the AudioBuffer memory footprint.
+    // A stereo stem at 44100 Hz, 5 min ≈ 100 MB decoded; mono ≈ 50 MB.
+    // Combined with the 22050 Hz context request this yields up to 4× savings.
+    // The loop runs once per stem (sequential load), so peak extra memory is
+    // just one additional buffer at a time before the stereo one is GC'd.
+    if (_isIOS && audioBuffer.numberOfChannels === 2) {
+      const mono = this._ctx.createBuffer(1, audioBuffer.length, audioBuffer.sampleRate)
+      const dst = mono.getChannelData(0)
+      const l   = audioBuffer.getChannelData(0)
+      const r   = audioBuffer.getChannelData(1)
+      for (let i = 0; i < audioBuffer.length; i++) {
+        dst[i] = (l[i] + r[i]) * 0.5
+      }
+      audioBuffer = mono  // stereo buffer can now be GC'd
     }
 
     // Create audio graph for this channel
