@@ -5,3 +5,12 @@ compatibility_date = "2024-09-23"
 # environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_R2_PUBLIC_URL).
 # When this key is present, Cloudflare switches to a BETA wrangler.toml build
 # path that ignores dashboard env vars, causing blank-page failures.
+
+# R2 bucket binding for local development (wrangler pages dev).
+# In production, add this binding in Cloudflare Pages → Settings → Functions →
+# R2 bucket bindings: variable name "STEMS_BUCKET", bucket name as configured.
+# Note: the presign function uses R2 API credentials (not this binding) to
+# generate presigned URLs, so the binding is available for future proxy-upload use.
+[[r2_buckets]]
+binding = "STEMS_BUCKET"
+bucket_name = "gracetracks-stems"

@@ -473,3 +473,379 @@
   border-radius: var(--radius-pill);
   transition: width 0.15s ease;
 }
+
+/* ==========================================================================
+   Navbar auth additions
+   ========================================================================== */
+
+.gt-navbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gt-navbar__auth {
+  /* same visual weight as the GraceChords link */
+}
+
+.gt-navbar__upload {
+  color: var(--gc-primary);
+}
+
+/* ==========================================================================
+   Sign-In Modal
+   ========================================================================== */
+
+.gt-signin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: var(--gc-overlay);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: gt-fade-in var(--gc-dur-quick) var(--gc-ease);
+}
+
+.gt-signin {
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--gc-shadow-2);
+}
+
+.gt-signin__title {
+  font-size: var(--gc-font-h2);
+  font-weight: var(--gc-weight-h2);
+  color: var(--gc-text);
+  margin: 0 0 var(--space-5);
+}
+
+.gt-signin__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gt-signin__label {
+  display: block;
+  font-size: var(--gc-font-sub);
+  font-weight: 500;
+  color: var(--gc-text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.gt-signin__input {
+  display: block;
+  width: 100%;
+  height: var(--gc-control-h);
+  padding: 0 var(--space-3);
+  background: var(--gc-surface-2);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-md);
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-body);
+  color: var(--gc-text);
+  outline: none;
+  transition: border-color var(--gc-dur-quick) var(--gc-ease);
+  box-sizing: border-box;
+}
+.gt-signin__input:focus {
+  border-color: var(--gc-primary);
+}
+
+.gt-signin__error {
+  font-size: var(--gc-font-sub);
+  color: var(--gc-danger);
+  margin: 0;
+}
+
+.gt-signin__submit {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+/* ==========================================================================
+   Upload Page
+   ========================================================================== */
+
+.gt-upload {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.gt-upload--denied {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.gt-upload__denied-msg {
+  font-size: var(--gc-font-body);
+  color: var(--gc-text-secondary);
+  text-align: center;
+}
+
+.gt-upload__header {
+  margin-bottom: var(--space-6);
+}
+
+.gt-upload__title {
+  font-size: var(--gc-font-title);
+  font-weight: var(--gc-weight-title);
+  color: var(--gc-text);
+  margin: 0;
+}
+
+.gt-upload__section {
+  margin-bottom: var(--space-6);
+}
+
+.gt-upload__section-title {
+  font-size: var(--gc-font-h2);
+  font-weight: var(--gc-weight-h2);
+  color: var(--gc-text);
+  margin: 0 0 var(--space-4);
+}
+
+.gt-upload__hint {
+  font-size: var(--gc-font-sub);
+  color: var(--gc-text-secondary);
+  margin: 0 0 var(--space-4);
+}
+.gt-upload__hint code {
+  font-family: var(--gc-font-mono);
+  background: var(--gc-surface-3);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* Metadata form fields */
+.gt-upload__fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.gt-upload__field--full {
+  grid-column: 1 / -1;
+}
+
+.gt-upload__label {
+  display: block;
+  font-size: var(--gc-font-sub);
+  font-weight: 500;
+  color: var(--gc-text-secondary);
+  margin-bottom: var(--space-1);
+}
+.gt-upload__label span {
+  color: var(--gc-danger);
+}
+
+.gt-upload__input {
+  display: block;
+  width: 100%;
+  height: var(--gc-control-h);
+  padding: 0 var(--space-3);
+  background: var(--gc-surface-2);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-md);
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-body);
+  color: var(--gc-text);
+  outline: none;
+  transition: border-color var(--gc-dur-quick) var(--gc-ease);
+  box-sizing: border-box;
+}
+.gt-upload__input:focus {
+  border-color: var(--gc-primary);
+}
+.gt-upload__input:invalid:not(:placeholder-shown) {
+  border-color: var(--gc-danger);
+}
+
+/* Stems grid */
+.gt-upload__stems {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+}
+
+@media (max-width: 700px) {
+  .gt-upload__stems { grid-template-columns: repeat(2, 1fr); }
+  .gt-upload__fields { grid-template-columns: 1fr; }
+  .gt-upload__field--full { grid-column: 1; }
+}
+
+/* Individual stem tile */
+.gt-upload__stem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--gc-surface-1);
+  border: 2px dashed var(--gc-separator);
+  border-radius: var(--radius-md);
+  min-height: 120px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--gc-dur-quick) var(--gc-ease),
+    background var(--gc-dur-quick) var(--gc-ease);
+  position: relative;
+  overflow: hidden;
+}
+.gt-upload__stem--dragover,
+.gt-upload__stem:hover {
+  border-color: var(--gc-primary);
+  background: color-mix(in srgb, var(--gc-primary) 5%, var(--gc-surface-1));
+}
+.gt-upload__stem--selected {
+  border-style: solid;
+  border-color: var(--gc-primary);
+}
+.gt-upload__stem--uploading {
+  border-style: solid;
+  border-color: var(--gc-text-tertiary);
+  cursor: default;
+}
+.gt-upload__stem--done {
+  border-style: solid;
+  border-color: #22c55e;
+  background: color-mix(in srgb, #22c55e 8%, var(--gc-surface-1));
+}
+.gt-upload__stem--error {
+  border-style: solid;
+  border-color: var(--gc-danger);
+  background: color-mix(in srgb, var(--gc-danger) 8%, var(--gc-surface-1));
+}
+
+.gt-upload__stem-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.gt-upload__stem-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.gt-upload__stem-label {
+  font-size: var(--gc-font-cap);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gc-text-secondary);
+}
+
+.gt-upload__stem-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.gt-upload__stem-drop-hint {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-tertiary);
+}
+
+.gt-upload__stem-filename {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-secondary);
+  word-break: break-all;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gt-upload__stem-size {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-tertiary);
+  font-family: var(--gc-font-mono);
+}
+
+.gt-upload__stem-done {
+  font-size: var(--gc-font-cap);
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.gt-upload__stem-error-msg {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-danger);
+  word-break: break-word;
+}
+
+/* Upload progress bar */
+.gt-upload__progress {
+  width: 100%;
+  height: 3px;
+  background: var(--gc-surface-3);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-top: var(--space-1);
+}
+.gt-upload__progress-bar {
+  height: 100%;
+  width: 100%;
+  background: var(--gc-primary);
+  border-radius: var(--radius-pill);
+  animation: gt-progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes gt-progress-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* Footer / submit */
+.gt-upload__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.gt-upload__form-error {
+  font-size: var(--gc-font-sub);
+  color: var(--gc-danger);
+  margin: 0;
+}
+
+.gt-upload__submit {
+  min-width: 140px;
+}
+
+/* Success state */
+.gt-upload__success {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: color-mix(in srgb, #22c55e 10%, var(--gc-surface-1));
+  border: 1px solid #22c55e;
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-5);
+}
+
+.gt-upload__success-msg {
+  font-size: var(--gc-font-body);
+  font-weight: 600;
+  color: var(--gc-text);
+  margin: 0;
+}

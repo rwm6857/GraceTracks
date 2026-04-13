@@ -43,6 +43,45 @@ The project was missing documented schema details despite using a structured dat
 
 ---
 
+---
+
+### 2026-04-13 — Stem Upload & Song Creation
+
+**Agent**: Claude (claude-sonnet-4-6)
+**Branch**: `claude/stem-upload-song-creation-YYi3i`
+**Status**: Completed
+
+**Summary**:
+Implemented the full stem upload pipeline: Supabase auth, role-gated upload UI, Cloudflare Pages Function for presigned R2 URLs, and migration SQL for RLS policies.
+
+**Changes**:
+
+- `supabase/migrations/20260413000000_songs_stem_upload.sql` — Idempotent migration: ensures `has_stems`, `stem_slug`, `gracetracks_url` columns exist; enables RLS; creates `songs_read_public` (anon SELECT) and `songs_write_editor` (editor/admin/owner INSERT+UPDATE) policies keyed on `auth.jwt() -> 'app_metadata' ->> 'role'`
+- `src/lib/auth.js` — New auth module: `getUser`, `getSession`, `signIn`, `signOut`, `isEditorPlus`, `onAuthStateChange`
+- `src/ui/signIn.js` — Modal overlay component for email/password auth; dismisses on ESC or backdrop click
+- `src/ui/uploadSong.js` — Upload page: song metadata form, 10 drag-and-drop stem tiles (drums/perc/bass/elec/keys/synth/vox/strings/click/ambient), sequential R2 upload via presigned URLs, Supabase upsert
+- `functions/api/presign.js` — Cloudflare Pages Function: verifies Supabase JWT, checks editor+ role, generates presigned R2 PUT URL using `aws4fetch`; handles CORS
+- `src/main.js` — Added `/upload` route; auth-reactive navbar with Sign In/Out and Upload buttons; upload page mounted/unmounted on auth changes
+- `src/styles/components.css` — New styles for `.gt-signin-overlay`, `.gt-signin`, `.gt-upload`, `.gt-upload__stems` grid, per-tile states (empty/selected/uploading/done/error), indeterminate progress animation
+- `wrangler.toml` — Added `[[r2_buckets]]` binding for local dev
+- `.env.example` — Documented new Pages Function secrets (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`)
+- `README.md` — Updated schema docs; added upload pipeline and Pages Function setup sections
+- `package.json` / `package-lock.json` — Added `aws4fetch` dependency
+
+**Key Decisions**:
+- Used presigned R2 PUT URLs (client uploads directly to R2) rather than proxying through the Worker to avoid memory limits on large audio files
+- Sequential stem uploads (not parallel) to avoid simultaneous large requests on mobile
+- Auth state managed in `main.js` with `onAuthStateChange`; upload page re-renders when auth changes
+- Slug validated as `[a-z0-9-]+` in both frontend and Pages Function
+
+**Manual Setup Required**:
+1. Run migration SQL in Supabase SQL Editor
+2. Create R2 API token with Object Read & Write permissions
+3. Set Pages Function secrets in Cloudflare Pages dashboard
+4. Add R2 bucket binding in Pages → Settings → Functions
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:
