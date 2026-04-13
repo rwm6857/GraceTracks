@@ -12,10 +12,18 @@ export default defineConfig({
       strategies: 'generateSW',
       manifest: false, // we supply our own manifest.webmanifest in /public
       workbox: {
+        // Do NOT call clientsClaim(). On iOS Safari, claiming existing clients
+        // forces a page reload mid-load, producing the double-load / crash.
+        // VitePWA's autoUpdate injects clientsClaim by default — opt out here.
+        clientsClaim: false,
         // App shell: cache-first
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        // Serve precached index.html for any navigate request when offline (SPA routing)
-        navigateFallback: '/index.html',
+        // Do NOT use navigateFallback. iOS Safari rejects SW navigate responses
+        // whose underlying fetch followed a redirect (response.redirected === true),
+        // which Workbox's precache can produce. Cloudflare's _redirects rule
+        // ("/* /index.html 200") already handles SPA routing server-side, so
+        // the fallback is unnecessary.
+        navigateFallback: null,
         // Stem WAV files: cache on first play, then serve from cache
         runtimeCaching: [
           {
