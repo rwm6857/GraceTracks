@@ -152,9 +152,20 @@ export function createTransport({
     }
   })
 
+  // Spacebar play / pause
+  function handleKeydown(e) {
+    if (e.code !== 'Space') return
+    const tag = document.activeElement?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return
+    e.preventDefault()
+    playBtn.click()
+  }
+  document.addEventListener('keydown', handleKeydown)
+
   function destroy() {
     engine.onPositionUpdate = null
     engine.onEnded = null
+    document.removeEventListener('keydown', handleKeydown)
   }
 
   return { el, destroy }
