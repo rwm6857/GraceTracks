@@ -14,7 +14,7 @@ export default defineConfig({
         // Stem WAV files: cache on first play, then serve from cache
         runtimeCaching: [
           {
-            urlPattern: /\.wav$/i,
+            urlPattern: /\.(wav|m4a)$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'stems-cache',

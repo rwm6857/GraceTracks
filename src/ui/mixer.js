@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase.js'
 import { AudioEngine, STEMS } from '../audio/engine.js'
+import { resolveStemUrl } from '../audio/stems.js'
 import { Metronome } from '../audio/metronome.js'
 import { Meters } from '../audio/meters.js'
 import { createTransport } from './transport.js'
@@ -11,8 +12,10 @@ const CHANNEL_COLORS = {
   elec:    '#22c55e',
   keys:    '#3b82f6',
   synth:   '#06b6d4',
-  vocals:  null,       // uses gc-text (inherits from theme)
+  vox:     null,       // uses gc-text (inherits from theme)
   strings: '#a855f7',
+  click:   '#94a3b8',
+  ambient: '#818cf8',
 }
 
 const CHANNEL_LABELS = {
@@ -22,8 +25,10 @@ const CHANNEL_LABELS = {
   elec:    'Electric',
   keys:    'Keys',
   synth:   'Synth',
-  vocals:  'Vocals',
+  vox:     'Vocals',
   strings: 'Strings',
+  click:   'Click',
+  ambient: 'Ambient',
 }
 
 /**
@@ -66,7 +71,8 @@ export async function renderMixer(container, slug) {
   const loadedChannels = []
   await Promise.all(
     STEMS.map(async (stem) => {
-      const url = `${r2Base}/tracks/${stemSlug}/${stem}.wav`
+      const url = await resolveStemUrl(r2Base, stemSlug, stem)
+      if (!url) return  // neither .m4a nor .wav exists — omit this channel
       const name = await engine.loadStem(stem, url)
       if (name) loadedChannels.push(stem)
     })
