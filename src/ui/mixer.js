@@ -62,7 +62,7 @@ export async function renderMixer(container, slug) {
   }
 
   const song = songs[0]
-  const stemSlug = song.stem_slug ?? song.slug
+  const stemSlug = song.stem_slug || song.slug
   const r2Base = import.meta.env.VITE_R2_PUBLIC_URL
 
   // — Engine setup
@@ -91,15 +91,15 @@ export async function renderMixer(container, slug) {
   const loadedChannels = []
   await Promise.all(
     STEMS.map(async (stem) => {
-      const url = await resolveStemUrl(r2Base, stemSlug, stem)
-      if (!url) {
+      const resolved = await resolveStemUrl(r2Base, stemSlug, stem)
+      if (!resolved) {
         stemsCompleted++
         const pct = Math.round((stemsCompleted / totalStems) * 100)
         fillEl.style.width = `${pct}%`
         barEl.setAttribute('aria-valuenow', pct)
         return  // neither .m4a nor .wav exists — omit this channel
       }
-      const name = await engine.loadStem(stem, url)
+      const name = await engine.loadStem(stem, resolved.url, resolved.response)
       if (name) loadedChannels.push(stem)
       stemsCompleted++
       const pct = Math.round((stemsCompleted / totalStems) * 100)
