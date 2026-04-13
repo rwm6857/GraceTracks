@@ -12,6 +12,7 @@ const CHANNEL_COLORS = {
   elec:    '#22c55e',
   keys:    '#3b82f6',
   synth:   '#06b6d4',
+  '2nd':   '#38bdf8',
   vox:     null,       // uses gc-text (inherits from theme)
   strings: '#a855f7',
   click:   '#94a3b8',
@@ -25,6 +26,7 @@ const CHANNEL_LABELS = {
   elec:    'Electric',
   keys:    'Keys',
   synth:   'Synth',
+  '2nd':   'Keys 2',
   vox:     'Vocals',
   strings: 'Strings',
   click:   'Click',

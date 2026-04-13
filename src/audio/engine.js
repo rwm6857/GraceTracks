@@ -8,7 +8,7 @@
  *   AudioBufferSourceNode -> GainNode (volume) -> AnalyserNode -> masterGain -> destination
  */
 
-export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'click', 'ambient']
+export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', '2nd', 'vox', 'strings', 'click', 'ambient']
 
 // Fader scale: 0-1 input range maps to:
 //   0   → -∞ dB (silence)
