@@ -200,7 +200,8 @@ export async function renderMixer(container, slug) {
   }
   container.appendChild(stripsWrap)
 
-  // Master volume strip
+  // Master volume strip — inside stripsWrap so it sits in the same row,
+  // margin-left:auto (via gt-strip--master CSS) pins it to the far right.
   const masterStrip = document.createElement('div')
   masterStrip.className = 'gt-strip gt-strip--master'
   masterStrip.innerHTML = `
@@ -221,7 +222,7 @@ export async function renderMixer(container, slug) {
     engine.setMasterVolume(v)
     masterStrip.querySelector('.gt-strip__db').textContent = faderToDb(v)
   })
-  container.appendChild(masterStrip)
+  stripsWrap.appendChild(masterStrip)
 
   // Transport
   const { el: transportEl } = createTransport({

@@ -231,6 +231,12 @@
   border-color: #ef4444 !important;
 }
 
+/* Master strip — always pinned to the far right of the flex row */
+.gt-strip--master {
+  margin-left: auto;
+  border-left: 2px solid var(--gc-separator);
+}
+
 /* Solo active — industry convention: yellow */
 .gt-strip__solo.is-soloed {
   background: #eab308 !important;
