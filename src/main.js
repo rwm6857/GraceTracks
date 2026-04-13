@@ -20,10 +20,10 @@ function renderNav() {
   return nav
 }
 
-// ─── Hash router ─────────────────────────────────────────────────────────────
+// ─── Router ──────────────────────────────────────────────────────────────────
 function getRoute() {
-  const hash = window.location.hash.replace(/^#/, '') || '/'
-  const m = hash.match(/^\/song\/(.+)$/)
+  const path = window.location.pathname
+  const m = path.match(/^\/song\/(.+)$/)
   if (m) return { view: 'mixer', slug: m[1] }
   return { view: 'picker' }
 }
@@ -60,13 +60,14 @@ function boot() {
   app.innerHTML = ''
   app.appendChild(renderNav())
 
-  // Nav home link uses hash routing
   document.getElementById('nav-home').addEventListener('click', (e) => {
     e.preventDefault()
-    window.location.hash = '#/'
+    history.pushState({}, '', '/')
+    currentView = null
+    render()
   })
 
-  window.addEventListener('hashchange', () => {
+  window.addEventListener('popstate', () => {
     currentView = null
     render()
   })

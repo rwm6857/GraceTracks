@@ -143,7 +143,7 @@ export async function renderMixer(container, slug) {
         rel="noopener noreferrer"
         class="gc-btn gc-btn--ghost gc-btn--sm"
       >View on GraceChords ↗</a>
-      <a href="#/" class="gc-btn gc-btn--ghost gc-btn--sm">← Songs</a>
+      <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm">← Songs</a>
     </div>
   `
   container.appendChild(header)
