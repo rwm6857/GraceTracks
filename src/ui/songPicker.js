@@ -77,7 +77,8 @@ export async function renderSongPicker(container) {
     // Attach click handlers
     listEl.querySelectorAll('.gt-picker__song-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        window.location.hash = `#/song/${btn.dataset.slug}`
+        history.pushState({}, '', `/song/${btn.dataset.slug}`)
+        window.dispatchEvent(new PopStateEvent('popstate'))
       })
     })
   }

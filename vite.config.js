@@ -3,6 +3,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
+  server: {
+    historyApiFallback: true,
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
