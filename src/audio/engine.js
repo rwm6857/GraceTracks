@@ -169,6 +169,23 @@ export class AudioEngine {
     this._stopRaf()
   }
 
+  /**
+   * Seek to a specific position. Works whether playing or paused.
+   * @param {number} seconds
+   */
+  seekTo(seconds) {
+    const offset = Math.max(0, Math.min(seconds, this._duration))
+    if (this._playing) {
+      this._stopSources()
+      this._playing = false
+      this._pauseOffset = offset
+      this.play(offset)
+    } else {
+      this._pauseOffset = offset
+      this._onPositionUpdate?.(offset)
+    }
+  }
+
   /** Stop and reset position to 0. */
   stop() {
     if (!this._ctx) return

@@ -29,6 +29,15 @@ export function createTransport({
   const el = document.createElement('div')
   el.className = 'gt-transport'
   el.innerHTML = `
+    <div class="gt-transport__seek-row">
+      <input
+        type="range"
+        class="gt-transport__seek"
+        min="0" max="100" value="0" step="0.1"
+        aria-label="Seek"
+      >
+    </div>
+
     <div class="gt-transport__group gt-transport__group--play">
       <button class="gt-transport__play gc-btn gc-btn--primary" aria-label="Play" data-action="play">
         <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -41,6 +50,8 @@ export function createTransport({
     <div class="gt-transport__group gt-transport__group--info">
       <span class="gt-transport__position" aria-live="off">0:00</span>
       <span class="gt-transport__divider">/</span>
+      <span class="gt-transport__duration">0:00</span>
+      <span class="gt-transport__divider">·</span>
       <span class="gt-transport__bpm">${bpm} BPM</span>
       <span class="gt-transport__divider">·</span>
       <span class="gt-transport__timesig">${song.time_signature || '4/4'}</span>
@@ -78,6 +89,8 @@ export function createTransport({
 
   const playBtn = el.querySelector('[data-action="play"]')
   const posEl = el.querySelector('.gt-transport__position')
+  const durationEl = el.querySelector('.gt-transport__duration')
+  const seekEl = el.querySelector('.gt-transport__seek')
   const countInBtn = el.querySelector('[data-action="countin"]')
   const metronomeBtn = el.querySelector('[data-action="metronome"]')
   const metersBtn = el.querySelector('[data-action="meters"]')
@@ -87,6 +100,34 @@ export function createTransport({
     const m = Math.floor(s / 60)
     return `${m}:${String(s % 60).padStart(2, '0')}`
   }
+
+  // Initialise seek bar range and total duration display
+  const totalDuration = engine.duration
+  seekEl.max = totalDuration || 100
+  durationEl.textContent = formatTime(totalDuration)
+
+  function updateSeekFill(t) {
+    const pct = totalDuration > 0 ? (t / totalDuration) * 100 : 0
+    seekEl.style.background =
+      `linear-gradient(to right, var(--gc-primary) ${pct}%, var(--gc-surface-3) ${pct}%)`
+  }
+  updateSeekFill(0)
+
+  // Seek bar interaction
+  let isSeeking = false
+  seekEl.addEventListener('pointerdown', () => { isSeeking = true })
+  seekEl.addEventListener('input', () => {
+    const t = parseFloat(seekEl.value)
+    posEl.textContent = formatTime(t)
+    updateSeekFill(t)
+  })
+  seekEl.addEventListener('change', () => {
+    const t = parseFloat(seekEl.value)
+    posEl.textContent = formatTime(t)
+    updateSeekFill(t)
+    engine.seekTo(t)
+    isSeeking = false
+  })
 
   function setPlayState(playing) {
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play')
@@ -100,8 +141,17 @@ export function createTransport({
   // Position updates from engine RAF
   engine.onPositionUpdate = (t) => {
     posEl.textContent = formatTime(t)
+    if (!isSeeking) {
+      seekEl.value = t
+      updateSeekFill(t)
+    }
   }
-  engine.onEnded = () => setPlayState(false)
+  engine.onEnded = () => {
+    setPlayState(false)
+    seekEl.value = 0
+    updateSeekFill(0)
+    posEl.textContent = formatTime(0)
+  }
 
   // — Play / Pause
   el.addEventListener('click', async (e) => {
