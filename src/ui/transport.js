@@ -160,6 +160,10 @@ export function createTransport({
     const action = btn.dataset.action
 
     if (action === 'play') {
+      // resumeIfSuspended must run inside the user-gesture handler so iOS
+      // unlocks the AudioContext (and subsequent audio.play() calls) before
+      // the count-in setTimeout fires engine.play().
+      await engine.resumeIfSuspended()
       if (countInEnabled) {
         playBtn.disabled = true
         metronome.countIn(bpm, timeSig,
