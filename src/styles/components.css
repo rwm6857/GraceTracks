@@ -178,7 +178,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
+  min-height: 80px;
+  padding: var(--space-2) 0;
 }
 
 .gt-strip__fader {
@@ -186,7 +187,7 @@
   writing-mode: vertical-lr;
   direction: rtl;
   width: 28px;
-  height: 120px;
+  height: 100%;
   cursor: pointer;
   accent-color: var(--gc-primary);
 }
@@ -205,7 +206,7 @@
 .gt-strip__meter-wrap {
   display: none;
   width: 6px;
-  height: 60px;
+  height: 100%;
   background: var(--gc-surface-3);
   border-radius: var(--radius-pill);
   overflow: hidden;
