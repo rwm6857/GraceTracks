@@ -330,3 +330,41 @@
   padding: var(--space-6);
   text-align: center;
 }
+
+/* Spinner */
+.gt-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--gc-surface-3);
+  border-top-color: var(--gc-primary);
+  border-radius: 50%;
+  animation: gt-spin 0.8s linear infinite;
+}
+
+@keyframes gt-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gt-spinner {
+    animation: none;
+    border-color: var(--gc-primary);
+  }
+}
+
+/* Progress bar */
+.gt-loading-bar {
+  width: min(240px, 60vw);
+  height: 4px;
+  background: var(--gc-surface-3);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.gt-loading-bar__fill {
+  height: 100%;
+  width: 0%;
+  background: var(--gc-primary);
+  border-radius: var(--radius-pill);
+  transition: width 0.15s ease;
+}

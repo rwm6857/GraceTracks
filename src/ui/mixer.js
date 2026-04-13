@@ -36,7 +36,12 @@ const CHANNEL_LABELS = {
  * Looks up song in Supabase, probes each stem URL, loads available stems.
  */
 export async function renderMixer(container, slug) {
-  container.innerHTML = `<div class="gt-mixer-loading">Loading song…</div>`
+  container.innerHTML = `
+    <div class="gt-mixer-loading">
+      <div class="gt-spinner" aria-hidden="true"></div>
+      <span>Loading song…</span>
+    </div>
+  `
 
   // — Fetch song
   const { data: songs, error } = await supabase
@@ -66,15 +71,40 @@ export async function renderMixer(container, slug) {
   // We'll patch metronome destination after engine context is created
 
   // — Probe + load stems
-  container.innerHTML = `<div class="gt-mixer-loading">Loading stems…</div>`
+  let stemsCompleted = 0
+  const totalStems = STEMS.length
+
+  const stemLoadingEl = document.createElement('div')
+  stemLoadingEl.className = 'gt-mixer-loading'
+  stemLoadingEl.innerHTML = `
+    <span>Loading stems…</span>
+    <div class="gt-loading-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Loading stems">
+      <div class="gt-loading-bar__fill"></div>
+    </div>
+  `
+  container.innerHTML = ''
+  container.appendChild(stemLoadingEl)
+
+  const fillEl = stemLoadingEl.querySelector('.gt-loading-bar__fill')
+  const barEl = stemLoadingEl.querySelector('.gt-loading-bar')
 
   const loadedChannels = []
   await Promise.all(
     STEMS.map(async (stem) => {
       const url = await resolveStemUrl(r2Base, stemSlug, stem)
-      if (!url) return  // neither .m4a nor .wav exists — omit this channel
+      if (!url) {
+        stemsCompleted++
+        const pct = Math.round((stemsCompleted / totalStems) * 100)
+        fillEl.style.width = `${pct}%`
+        barEl.setAttribute('aria-valuenow', pct)
+        return  // neither .m4a nor .wav exists — omit this channel
+      }
       const name = await engine.loadStem(stem, url)
       if (name) loadedChannels.push(stem)
+      stemsCompleted++
+      const pct = Math.round((stemsCompleted / totalStems) * 100)
+      fillEl.style.width = `${pct}%`
+      barEl.setAttribute('aria-valuenow', pct)
     })
   )
 
