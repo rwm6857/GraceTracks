@@ -87,24 +87,26 @@ export async function renderMixer(container, slug) {
   const barEl = stemLoadingEl.querySelector('.gt-loading-bar')
 
   const loadedChannels = []
-  await Promise.all(
-    STEMS.map(async (stem) => {
-      const resolved = await resolveStemUrl(r2Base, stemSlug, stem)
-      if (!resolved) {
-        stemsCompleted++
-        const pct = Math.round((stemsCompleted / totalStems) * 100)
-        fillEl.style.width = `${pct}%`
-        barEl.setAttribute('aria-valuenow', pct)
-        return  // neither .m4a nor .wav exists — omit this channel
-      }
-      const name = await engine.loadStem(stem, resolved.url, resolved.response)
-      if (name) loadedChannels.push(stem)
+  // Load stems sequentially, not in parallel. Parallel loading holds every
+  // compressed response body + decoded AudioBuffer in memory simultaneously,
+  // which exhausts iOS Safari's per-tab memory limit and causes a WebKit crash.
+  // Sequential loading lets each compressed buffer be GC'd before the next fetch.
+  for (const stem of STEMS) {
+    const resolved = await resolveStemUrl(r2Base, stemSlug, stem)
+    if (!resolved) {
       stemsCompleted++
       const pct = Math.round((stemsCompleted / totalStems) * 100)
       fillEl.style.width = `${pct}%`
       barEl.setAttribute('aria-valuenow', pct)
-    })
-  )
+      continue  // neither .m4a nor .wav exists — omit this channel
+    }
+    const name = await engine.loadStem(stem, resolved.url, resolved.response)
+    if (name) loadedChannels.push(stem)
+    stemsCompleted++
+    const pct = Math.round((stemsCompleted / totalStems) * 100)
+    fillEl.style.width = `${pct}%`
+    barEl.setAttribute('aria-valuenow', pct)
+  }
 
   // Sort by STEMS order
   const orderedChannels = STEMS.filter(s => loadedChannels.includes(s))

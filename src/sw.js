@@ -1,24 +1,19 @@
 /**
- * GraceTracks Service Worker
+ * GraceTracks Service Worker — SOURCE NOTE
  *
- * This file is the custom service worker entry point.
- * vite-plugin-pwa (generateSW strategy) handles the Workbox injection
- * automatically — you do not need to add Workbox imports manually.
+ * This file is NOT used in the build. vite-plugin-pwa with strategies:'generateSW'
+ * generates dist/sw.js entirely from the workbox: config in vite.config.js.
+ * Any code written here has NO effect on the deployed service worker.
  *
- * Runtime caching rules are configured in vite.config.js (workbox.runtimeCaching).
- * Stem WAV files are cached with CacheFirst in 'stems-cache'.
- * App shell assets are precached by the injected Workbox precache manifest.
+ * To add custom SW logic, either:
+ *   a) Switch to strategies:'injectManifest' in vite.config.js (then this file IS used), or
+ *   b) Add Workbox options to the workbox: block in vite.config.js.
  *
- * If you need custom service worker logic (e.g. push notifications, background
- * sync), add it below the Workbox injection point comment.
+ * SW behaviour is controlled by registerType and workbox options in vite.config.js.
+ * Key decisions documented there:
+ *   - registerType: 'prompt'  (NOT 'autoUpdate') — prevents skipWaiting()/clientsClaim()
+ *     from being injected, which on iOS Safari forces a page reload causing crashes.
+ *   - navigateFallback: null  — Cloudflare _redirects handles SPA routing server-side;
+ *     navigateFallback can return response.redirected=true which iOS Safari rejects.
+ *   - clientsClaim: false     — belt-and-suspenders; prompt mode doesn't inject it anyway.
  */
-
-// Workbox injects its precache manifest here during build:
-// self.__WB_MANIFEST
-
-// — Custom SW logic (optional) —
-// NOTE: Do NOT call self.clients.claim() here.
-// On iOS Safari, clients.claim() forces an immediate page reload when the SW
-// activates, causing the double-load / "A problem repeatedly occurred" crash.
-// SPA routing works without it: Cloudflare's _redirects handles first-visit
-// navigation, and the SW takes control on the next navigation naturally.
