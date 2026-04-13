@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <g stroke="#ef4444" stroke-linecap="round" stroke-linejoin="round">
+    <!-- bass drum face -->
+    <circle cx="24" cy="30" r="14" stroke-width="2.5"/>
+    <circle cx="24" cy="30" r="7" stroke-width="1.5"/>
+    <!-- drumstick left -->
+    <line x1="14" y1="6" x2="20" y2="19" stroke-width="2.5"/>
+    <circle cx="14" cy="6" r="2.5" fill="#ef4444" stroke="none"/>
+    <!-- drumstick right -->
+    <line x1="34" y1="6" x2="28" y2="19" stroke-width="2.5"/>
+    <circle cx="34" cy="6" r="2.5" fill="#ef4444" stroke="none"/>
+  </g>
+</svg>

@@ -162,6 +162,16 @@
   text-align: center;
 }
 
+/* Channel icon */
+.gt-strip__icon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+  margin: 2px 0;
+}
+
 /* Vertical fader */
 .gt-strip__fader-wrap {
   flex: 1;

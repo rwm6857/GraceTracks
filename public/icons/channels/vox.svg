@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke="#9c8878" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- mic capsule (rounded top) -->
+  <path d="M16 22 L16 10 Q16 4 24 4 Q32 4 32 10 L32 22 Q32 30 24 30 Q16 30 16 22 Z"/>
+  <!-- capsule grill lines -->
+  <line x1="16" y1="14" x2="32" y2="14" stroke-width="1.5"/>
+  <line x1="16" y1="19" x2="32" y2="19" stroke-width="1.5"/>
+  <line x1="17" y1="24" x2="31" y2="24" stroke-width="1.5"/>
+  <!-- handle / stand arm -->
+  <line x1="24" y1="30" x2="24" y2="40"/>
+  <!-- base -->
+  <line x1="16" y1="44" x2="32" y2="44"/>
+  <line x1="20" y1="40" x2="28" y2="40"/>
+  <line x1="18" y1="44" x2="20" y2="40"/>
+  <line x1="30" y1="44" x2="28" y2="40"/>
+</svg>
