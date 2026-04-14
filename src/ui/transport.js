@@ -115,19 +115,46 @@ export function createTransport({
 
   // Seek bar interaction
   let isSeeking = false
-  seekEl.addEventListener('pointerdown', () => { isSeeking = true })
+  let resumeAfterSeek = false
+
+  seekEl.addEventListener('pointerdown', () => {
+    isSeeking = true
+    resumeAfterSeek = engine.playing
+    if (resumeAfterSeek) {
+      engine.pause()
+      metronome.stop()
+    }
+  })
+
   seekEl.addEventListener('input', () => {
     const t = parseFloat(seekEl.value)
     posEl.textContent = formatTime(t)
     updateSeekFill(t)
+    engine.seekTo(t)
   })
-  seekEl.addEventListener('change', () => {
+
+  function endSeek() {
+    if (!isSeeking) return
+    isSeeking = false
     const t = parseFloat(seekEl.value)
+    engine.seekTo(t)
     posEl.textContent = formatTime(t)
     updateSeekFill(t)
-    engine.seekTo(t)
+    if (resumeAfterSeek && playBtn.dataset.action === 'pause') {
+      engine.play(t)
+      if (metronomeEnabled) metronome.start(bpm, timeSig)
+    }
+    resumeAfterSeek = false
+  }
+
+  function cancelSeek() {
+    if (!isSeeking) return
     isSeeking = false
-  })
+    resumeAfterSeek = false
+  }
+
+  document.addEventListener('pointerup', endSeek)
+  document.addEventListener('pointercancel', cancelSeek)
 
   function setPlayState(playing) {
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play')
@@ -166,12 +193,13 @@ export function createTransport({
       await engine.resumeIfSuspended()
       if (countInEnabled) {
         playBtn.disabled = true
+        const startPos = engine.currentTime
         metronome.countIn(bpm, timeSig,
           (beatInfo) => onCountInBeat?.(beatInfo),
           (startAt) => {
             playBtn.disabled = false
             onCountInEnd?.()
-            engine.play(0, startAt)
+            engine.play(startPos, startAt)
             if (metronomeEnabled) metronome.start(bpm, timeSig, startAt)
             setPlayState(true)
             onPlay?.()
@@ -220,6 +248,8 @@ export function createTransport({
     engine.onPositionUpdate = null
     engine.onEnded = null
     document.removeEventListener('keydown', handleKeydown)
+    document.removeEventListener('pointerup', endSeek)
+    document.removeEventListener('pointercancel', cancelSeek)
   }
 
   return { el, destroy }
