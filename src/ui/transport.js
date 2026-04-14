@@ -40,10 +40,9 @@ export function createTransport({
 
     <div class="gt-transport__group gt-transport__group--play">
       <button class="gt-transport__play gc-btn gc-btn--primary" aria-label="Play" data-action="play">
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
+        <svg class="gt-icon gt-transport__play-icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z"/>
         </svg>
-        <span class="gt-transport__play-label">Play</span>
       </button>
     </div>
 
@@ -51,31 +50,33 @@ export function createTransport({
       <span class="gt-transport__position" aria-live="off">0:00</span>
       <span class="gt-transport__divider">/</span>
       <span class="gt-transport__duration">0:00</span>
-      <span class="gt-transport__divider">·</span>
-      <span class="gt-transport__bpm">${bpm} BPM</span>
-      <span class="gt-transport__divider">·</span>
-      <span class="gt-transport__timesig">${song.time_signature || '4/4'}</span>
     </div>
 
     <div class="gt-transport__group gt-transport__group--toggles">
       <button
-        class="gt-transport__toggle gc-btn gc-btn--ghost gc-btn--sm"
+        class="gt-transport__toggle gc-btn gc-btn--sm"
         data-action="countin"
         aria-pressed="true"
         title="Count-in"
-      >Count-in</button>
+      >
+        <span class="gt-transport__countin-icon" aria-hidden="true">
+          <span class="gt-transport__countin-nums">1234</span>
+          <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" class="gt-transport__countin-caret"><path d="M0 0l4 5 4-5z"/></svg>
+        </span>
+      </button>
       <button
-        class="gt-transport__toggle gc-btn gc-btn--ghost gc-btn--sm"
+        class="gt-transport__toggle gc-btn gc-btn--sm"
         data-action="metronome"
         aria-pressed="false"
         title="Metronome click"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L8 7H4l4 5-1 10h10l-1-10 4-5h-4L12 2zm0 3l2.5 3.5H14l.8 8.5H9.2L10 8.5H9.5L12 5z"/>
+        <svg class="gt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 21h12l2.5-18H3.5L6 21z" stroke-width="1.5"/>
+          <line x1="12" y1="5.5" x2="17" y2="17.5" stroke-width="2"/>
         </svg>
       </button>
       <button
-        class="gt-transport__toggle gc-btn gc-btn--ghost gc-btn--sm"
+        class="gt-transport__toggle gc-btn gc-btn--sm"
         data-action="meters"
         aria-pressed="false"
         title="Show meters"
@@ -127,22 +128,40 @@ export function createTransport({
   })
 
   seekEl.addEventListener('input', () => {
+    // Visual-only update during drag.
+    //
+    // Root cause of the scrub desync: calling engine.seekTo() on every input
+    // event triggers audio.currentTime = offset on each HTMLAudioElement in a
+    // tight loop. HTMLAudioElements process seek requests asynchronously (each
+    // element buffers/decodes independently). Rapid reassignments race against
+    // in-flight seeks so different stems land at different positions when play
+    // resumes — producing a timing offset that accumulates.
+    //
+    // Fix: update only the UI here; commit the single authoritative seek once
+    // on pointerup in endSeek() so all stems receive one seek command while idle.
     const t = parseFloat(seekEl.value)
     posEl.textContent = formatTime(t)
     updateSeekFill(t)
-    engine.seekTo(t)
   })
 
   function endSeek() {
     if (!isSeeking) return
     isSeeking = false
     const t = parseFloat(seekEl.value)
+    // Single seek committed on pointer release — all stems receive one
+    // audio.currentTime assignment while paused, eliminating the per-element
+    // async race that caused the timing desync during rapid drag scrubbing.
     engine.seekTo(t)
     posEl.textContent = formatTime(t)
     updateSeekFill(t)
     if (resumeAfterSeek && playBtn.dataset.action === 'pause') {
-      engine.play(t)
-      if (metronomeEnabled) metronome.start(bpm, timeSig)
+      // Resume AudioContext before play. On iOS, the context can be left in
+      // 'suspended' state after a seek if the page was briefly backgrounded
+      // during the drag; calling play() on a suspended context is a no-op.
+      engine.resumeIfSuspended().then(() => {
+        engine.play(t)
+        if (metronomeEnabled) metronome.start(bpm, timeSig)
+      })
     }
     resumeAfterSeek = false
   }
@@ -158,7 +177,6 @@ export function createTransport({
 
   function setPlayState(playing) {
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play')
-    playBtn.querySelector('.gt-transport__play-label').textContent = playing ? 'Pause' : 'Play'
     playBtn.querySelector('svg').innerHTML = playing
       ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
       : '<path d="M8 5v14l11-7z"/>'

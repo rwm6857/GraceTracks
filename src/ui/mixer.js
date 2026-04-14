@@ -154,11 +154,19 @@ export async function renderMixer(container, slug) {
     })
   }
 
-  // — Resume AudioContext when tab returns to foreground
+  // — Resume AudioContext when tab returns to foreground (visibilitychange) or
+  //   when iOS Safari restores the page from bfcache (pageshow persisted=true).
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible') engine.resumeIfSuspended()
   }
+  const onPageShow = (e) => {
+    // e.persisted === true means this is a bfcache restore, not a fresh load.
+    // Scripts don't re-execute on bfcache, but the AudioContext may have been
+    // suspended by iOS while the page was backgrounded — resume it.
+    if (e.persisted) engine.resumeIfSuspended()
+  }
   document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('pageshow', onPageShow)
 
   // — Build mixer UI
   container.innerHTML = ''
@@ -176,9 +184,12 @@ export async function renderMixer(container, slug) {
         href="https://gracechords.com/song/${encodeURIComponent(song.slug)}"
         target="_blank"
         rel="noopener noreferrer"
-        class="gc-btn gc-btn--ghost gc-btn--sm"
+        class="gc-btn gc-btn--ghost gc-btn--sm gt-mixer-header__gracechords-link"
       >View on GraceChords ↗</a>
-      <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm gt-back-link">← Songs</a>
+      <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm gt-back-link" aria-label="Back to songs">
+        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        <span class="gt-back-link__text">Songs</span>
+      </a>
     </div>
   `
   container.appendChild(header)
@@ -346,6 +357,7 @@ export async function renderMixer(container, slug) {
     metersInst.stop()
     destroyTransport()
     document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('pageshow', onPageShow)
     if ('mediaSession' in navigator) {
       for (const action of ['play', 'pause', 'seekto', 'seekbackward', 'seekforward']) {
         navigator.mediaSession.setActionHandler(action, null)

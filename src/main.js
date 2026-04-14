@@ -169,4 +169,12 @@ async function boot() {
   render()
 }
 
-boot()
+// Guard: run boot() only once per cold start. ES modules execute once per page
+// load anyway, but this flag makes the intent explicit. On iOS Safari bfcache
+// restores the module does NOT re-execute — window.__gtInitialized is preserved
+// in memory, and the pageshow handler in mixer.js resumes the AudioContext if
+// it was suspended while the page was in the bfcache.
+if (!window.__gtInitialized) {
+  window.__gtInitialized = true
+  boot()
+}
