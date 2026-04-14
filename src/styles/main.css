@@ -225,6 +225,50 @@ body {
 }
 
 /* ===== Responsive ===== */
+
+/* — 640px: mobile song-view header cleanup — */
+@media (max-width: 640px) {
+  /* Hide the desktop-only GraceChords external link */
+  .gt-mixer-header__gracechords-link {
+    display: none;
+  }
+
+  /* Back link: icon-only on mobile (text hidden via sibling rule below) */
+  .gt-back-link__text {
+    display: none;
+  }
+  .gt-back-link.gc-btn {
+    /* Square icon-only button — override default horizontal padding */
+    width: var(--gc-control-h-mobile);  /* 44px */
+    padding: 0;
+  }
+
+  /* Prevent the header from wrapping; title truncates if needed */
+  .gt-mixer-header {
+    flex-wrap: nowrap;
+  }
+  .gt-mixer-header__info {
+    flex: 1;
+    min-width: 0;
+  }
+  .gt-mixer-header__title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gt-mixer-header__actions {
+    flex-shrink: 0;
+  }
+
+  /* Mute/Solo: slightly larger touch targets on mobile */
+  .gt-strip__mute.gc-btn,
+  .gt-strip__solo.gc-btn {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* — 480px: tighten spacing — */
 @media (max-width: 480px) {
   .gt-navbar {
     padding: var(--space-2) var(--space-3);

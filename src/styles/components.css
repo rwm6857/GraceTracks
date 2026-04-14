@@ -103,6 +103,32 @@
   display: block;
 }
 
+/* Play button: larger icon (20px) on all viewports */
+.gt-transport__play-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Count-in icon: Logic Pro–style "1234" block with downward caret */
+.gt-transport__countin-icon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gt-transport__countin-nums {
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  font-family: var(--gc-font-mono);
+}
+.gt-transport__countin-caret {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* ==========================================================================
    Channel Strip
    ========================================================================== */
@@ -237,9 +263,31 @@
   flex-direction: column;
   gap: var(--space-1);
   width: 100%;
+  align-items: center; /* keep square buttons centred within the strip width */
 }
 
-/* Mute active — industry convention: red */
+/* Mute / Solo: square (width = height) on all viewports.
+   Off-state tints serve as a visual reminder of what the button will do. */
+.gt-strip__mute.gc-btn,
+.gt-strip__solo.gc-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--gc-separator);
+}
+
+/* Mute off-state: subtle red tint */
+.gt-strip__mute.gc-btn {
+  background: color-mix(in srgb, var(--gc-danger) 15%, var(--gc-surface-2));
+}
+
+/* Solo off-state: subtle yellow tint */
+.gt-strip__solo.gc-btn {
+  background: color-mix(in srgb, var(--gc-yellow) 15%, var(--gc-surface-2));
+}
+
+/* Mute active — industry convention: full red */
 .gt-strip__mute.is-muted {
   background: #ef4444 !important;
   color: #fff !important;
@@ -252,11 +300,34 @@
   border-left: 2px solid var(--gc-separator);
 }
 
-/* Solo active — industry convention: yellow */
+/* Solo active — industry convention: full yellow */
 .gt-strip__solo.is-soloed {
   background: #eab308 !important;
   color: #000 !important;
   border-color: #eab308 !important;
+}
+
+/* ==========================================================================
+   Transport toggle buttons (count-in, metronome, meters)
+   Logic Pro–style: surface-2 background when inactive, primary fill when active.
+   ========================================================================== */
+
+/* Override ghost defaults — toggles have a visible resting background */
+.gt-transport__toggle.gc-btn {
+  background: var(--gc-surface-2);
+  color: var(--gc-text-secondary);
+  border: 1px solid var(--gc-separator);
+}
+.gt-transport__toggle.gc-btn:hover {
+  background: var(--gc-surface-3);
+  color: var(--gc-text);
+}
+/* Active state: primary fill with white icon (overrides generic aria-pressed rule) */
+.gt-transport__toggle.gc-btn[aria-pressed="true"],
+.gt-transport__toggle.gc-btn.is-active {
+  background: var(--gc-primary);
+  color: #fff;
+  border-color: var(--gc-primary);
 }
 
 /* ==========================================================================
