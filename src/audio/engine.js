@@ -165,20 +165,34 @@ export class AudioEngine {
     const doPlay = async () => {
       const channels = Object.values(this._channels)
 
-      // Seek all stems, then wait for every 'seeked' event before calling
-      // .play(). HTMLAudioElement.currentTime assignments are asynchronous —
-      // each element buffers/decodes to the new position independently. Calling
-      // .play() before 'seeked' fires starts each stem from a different
-      // indeterminate position, producing audible desync. Awaiting 'seeked' on
-      // every stem guarantees they all begin from exactly the same offset.
-      await Promise.all(channels.map(ch => {
-        ch.audio.currentTime = offsetSeconds
-        ch.audio.loop = this._looping
-        return new Promise(resolve => {
-          ch.audio.addEventListener('seeked', resolve, { once: true })
-          ch.audio.addEventListener('error',  resolve, { once: true })
-        })
-      }))
+      // Set loop flag on all channels up front.
+      for (const ch of channels) ch.audio.loop = this._looping
+
+      // Only await 'seeked' for channels that are not already at the target
+      // position. When currentTime already equals the target, some browsers
+      // treat the assignment as a no-op and never fire 'seeked', which would
+      // leave the Promise unresolved and stall playback indefinitely.
+      //
+      // For channels that do need to move: setting currentTime is asynchronous
+      // — each element buffers/decodes independently. Calling .play() before
+      // 'seeked' fires starts stems from different positions, producing desync.
+      // Awaiting 'seeked' guarantees all of them are at the same offset before
+      // any .play() call is issued. A 3 s safety timeout guards against the
+      // (abnormal) case where 'seeked' never arrives.
+      const toSeek = channels.filter(
+        ch => Math.abs(ch.audio.currentTime - offsetSeconds) >= 0.05
+      )
+
+      if (toSeek.length > 0) {
+        await Promise.all(toSeek.map(ch => {
+          ch.audio.currentTime = offsetSeconds
+          return new Promise(resolve => {
+            ch.audio.addEventListener('seeked', resolve, { once: true })
+            ch.audio.addEventListener('error',  resolve, { once: true })
+            setTimeout(resolve, 3000)
+          })
+        }))
+      }
 
       // If pause() or stop() was called while seeks were in flight, abort.
       if (this._playGeneration !== generation) return
