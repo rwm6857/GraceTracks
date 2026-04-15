@@ -148,20 +148,21 @@ export function createTransport({
     if (!isSeeking) return
     isSeeking = false
     const t = parseFloat(seekEl.value)
-    // Single seek committed on pointer release — all stems receive one
-    // audio.currentTime assignment while paused, eliminating the per-element
-    // async race that caused the timing desync during rapid drag scrubbing.
-    engine.seekTo(t)
     posEl.textContent = formatTime(t)
     updateSeekFill(t)
     if (resumeAfterSeek && playBtn.dataset.action === 'pause') {
-      // Resume AudioContext before play. On iOS, the context can be left in
-      // 'suspended' state after a seek if the page was briefly backgrounded
-      // during the drag; calling play() on a suspended context is a no-op.
+      // play(t) seeks all stems internally, waits for every 'seeked' event,
+      // then starts playback — no separate seekTo() needed here. Calling
+      // seekTo() first would start async seeks on every element, then play(t)
+      // would immediately cancel them with a second set of seeks before either
+      // batch completes, worsening the desync instead of fixing it.
       engine.resumeIfSuspended().then(() => {
         engine.play(t)
         if (metronomeEnabled) metronome.start(bpm, timeSig)
       })
+    } else {
+      // Not resuming — just update the stored position without playing.
+      engine.seekTo(t)
     }
     resumeAfterSeek = false
   }
