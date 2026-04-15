@@ -279,10 +279,16 @@ export async function renderMixer(container, slug) {
     </div>
     <div class="gt-strip__db">0 dB</div>
   `
-  masterStrip.querySelector('.gt-strip__fader').addEventListener('input', (e) => {
+  const masterFader = masterStrip.querySelector('.gt-strip__fader')
+  masterFader.addEventListener('input', (e) => {
     const v = parseFloat(e.target.value)
     engine.setMasterVolume(v)
     masterStrip.querySelector('.gt-strip__db').textContent = faderToDb(v)
+  })
+  masterFader.addEventListener('dblclick', () => {
+    masterFader.value = 0.75
+    engine.setMasterVolume(0.75)
+    masterStrip.querySelector('.gt-strip__db').textContent = '0 dB'
   })
   stripsWrap.appendChild(masterStrip)
 
@@ -322,6 +328,17 @@ export async function renderMixer(container, slug) {
     // Update dB readout
     const db = faderToDb(v)
     strip.querySelector('.gt-strip__db').textContent = db
+  })
+
+  // Double-click a fader to reset it to unity (0 dB = 0.75)
+  stripsWrap.addEventListener('dblclick', (e) => {
+    if (!e.target.classList.contains('gt-strip__fader')) return
+    const strip = e.target.closest('[data-channel]')
+    const name = strip?.dataset.channel
+    if (!name) return
+    e.target.value = 0.75
+    engine.setFader(name, 0.75)
+    strip.querySelector('.gt-strip__db').textContent = '0 dB'
   })
 
   stripsWrap.addEventListener('click', (e) => {
