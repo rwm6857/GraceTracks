@@ -22,9 +22,14 @@ export function createTransport({
   const bpm = song.tempo || 120
   const timeSig = parseInt(song.time_signature?.split('/')?.[0] ?? '4', 10)
 
+  const hasClick   = engine.getLoadedChannels().includes('click')
+  const hasAmbient = engine.getLoadedChannels().includes('ambient')
+
   let countInEnabled = true
-  let metronomeEnabled = false
-  let metersActive = false
+  let clickEnabled   = false
+  let clickVolume    = 0.75   // unity gain; adjusted by vol up/down buttons
+  let ambientEnabled = false
+  let metersActive   = false
 
   const el = document.createElement('div')
   el.className = 'gt-transport'
@@ -64,17 +69,51 @@ export function createTransport({
           <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" class="gt-transport__countin-caret"><path d="M0 0l4 5 4-5z"/></svg>
         </span>
       </button>
+      ${hasClick ? `
       <button
         class="gt-transport__toggle gc-btn gc-btn--sm"
         data-action="metronome"
         aria-pressed="false"
-        title="Metronome click"
+        title="Click track"
       >
         <svg class="gt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 21h12l2.5-18H3.5L6 21z" stroke-width="1.5"/>
           <line x1="12" y1="5.5" x2="17" y2="17.5" stroke-width="2"/>
         </svg>
       </button>
+      <button
+        class="gt-transport__toggle gc-btn gc-btn--sm"
+        data-action="click-vol-down"
+        title="Click volume down"
+        aria-label="Click volume down"
+      >
+        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5zm7-.17v6.34L9.83 13H7v-2h2.83L12 8.83z"/>
+        </svg>
+      </button>
+      <button
+        class="gt-transport__toggle gc-btn gc-btn--sm"
+        data-action="click-vol-up"
+        title="Click volume up"
+        aria-label="Click volume up"
+      >
+        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+      </button>
+      ` : ''}
+      ${hasAmbient ? `
+      <button
+        class="gt-transport__toggle gc-btn gc-btn--sm"
+        data-action="ambient"
+        aria-pressed="false"
+        title="Ambient"
+      >
+        <svg class="gt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2">
+          <path d="M2 12c2-4 4-4 6 0s4 4 6 0s4-4 6 0"/>
+        </svg>
+      </button>
+      ` : ''}
       <button
         class="gt-transport__toggle gc-btn gc-btn--sm"
         data-action="meters"
@@ -88,13 +127,14 @@ export function createTransport({
     </div>
   `
 
-  const playBtn = el.querySelector('[data-action="play"]')
-  const posEl = el.querySelector('.gt-transport__position')
-  const durationEl = el.querySelector('.gt-transport__duration')
-  const seekEl = el.querySelector('.gt-transport__seek')
-  const countInBtn = el.querySelector('[data-action="countin"]')
-  const metronomeBtn = el.querySelector('[data-action="metronome"]')
-  const metersBtn = el.querySelector('[data-action="meters"]')
+  const playBtn      = el.querySelector('[data-action="play"]')
+  const posEl        = el.querySelector('.gt-transport__position')
+  const durationEl   = el.querySelector('.gt-transport__duration')
+  const seekEl       = el.querySelector('.gt-transport__seek')
+  const countInBtn   = el.querySelector('[data-action="countin"]')
+  const metronomeBtn = el.querySelector('[data-action="metronome"]')  // null if no click stem
+  const ambientBtn   = el.querySelector('[data-action="ambient"]')    // null if no ambient stem
+  const metersBtn    = el.querySelector('[data-action="meters"]')
 
   function formatTime(secs) {
     const s = Math.floor(secs)
@@ -160,7 +200,6 @@ export function createTransport({
       // during the drag; calling play() on a suspended context is a no-op.
       engine.resumeIfSuspended().then(() => {
         engine.play(t)
-        if (metronomeEnabled) metronome.start(bpm, timeSig)
       })
     }
     resumeAfterSeek = false
@@ -218,14 +257,12 @@ export function createTransport({
             playBtn.disabled = false
             onCountInEnd?.()
             engine.play(startPos, startAt)
-            if (metronomeEnabled) metronome.start(bpm, timeSig, startAt)
             setPlayState(true)
             onPlay?.()
           }
         )
       } else {
         engine.play(engine.currentTime)
-        if (metronomeEnabled) metronome.start(bpm, timeSig)
         setPlayState(true)
         onPlay?.()
       }
@@ -239,10 +276,22 @@ export function createTransport({
       countInBtn.setAttribute('aria-pressed', String(countInEnabled))
       countInBtn.classList.toggle('is-active', countInEnabled)
     } else if (action === 'metronome') {
-      metronomeEnabled = !metronomeEnabled
-      metronomeBtn.setAttribute('aria-pressed', String(metronomeEnabled))
-      metronomeBtn.classList.toggle('is-active', metronomeEnabled)
-      if (!metronomeEnabled) metronome.stop()
+      // Toggle click track stem (audio file), not the oscillator generator
+      clickEnabled = !clickEnabled
+      metronomeBtn.setAttribute('aria-pressed', String(clickEnabled))
+      metronomeBtn.classList.toggle('is-active', clickEnabled)
+      engine.setFader('click', clickEnabled ? clickVolume : 0)
+    } else if (action === 'click-vol-down') {
+      clickVolume = Math.max(0, Math.round((clickVolume - 0.1) * 10) / 10)
+      if (clickEnabled) engine.setFader('click', clickVolume)
+    } else if (action === 'click-vol-up') {
+      clickVolume = Math.min(1, Math.round((clickVolume + 0.1) * 10) / 10)
+      if (clickEnabled) engine.setFader('click', clickVolume)
+    } else if (action === 'ambient') {
+      ambientEnabled = !ambientEnabled
+      ambientBtn.setAttribute('aria-pressed', String(ambientEnabled))
+      ambientBtn.classList.toggle('is-active', ambientEnabled)
+      engine.setFader('ambient', ambientEnabled ? 0.75 : 0)
     } else if (action === 'meters') {
       metersActive = !metersActive
       metersBtn.setAttribute('aria-pressed', String(metersActive))
