@@ -111,6 +111,11 @@ export async function renderMixer(container, slug) {
   // Sort by STEMS order
   const orderedChannels = STEMS.filter(s => loadedChannels.includes(s))
 
+  // Silence click and ambient by default — controlled via transport buttons,
+  // not regular channel strips.
+  if (orderedChannels.includes('click')) engine.setFader('click', 0)
+  if (orderedChannels.includes('ambient')) engine.setFader('ambient', 0)
+
   if (orderedChannels.length === 0) {
     container.innerHTML = `
       <div class="gt-mixer-error">
@@ -217,7 +222,10 @@ export async function renderMixer(container, slug) {
   const stripEls = {}
   const meterBarEls = {}
 
-  for (const name of orderedChannels) {
+  // click and ambient have dedicated transport controls — exclude from strips
+  const stripChannels = orderedChannels.filter(s => s !== 'click' && s !== 'ambient')
+
+  for (const name of stripChannels) {
     const color = CHANNEL_COLORS[name]
     const label = CHANNEL_LABELS[name]
 
