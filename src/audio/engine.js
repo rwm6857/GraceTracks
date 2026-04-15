@@ -161,40 +161,41 @@ export class AudioEngine {
     if (!this._ctx || this._playing) return
 
     const generation = ++this._playGeneration
+    const channels = Object.values(this._channels)
 
-    const doPlay = async () => {
-      const channels = Object.values(this._channels)
+    // Begin seeking ALL stems immediately — before any count-in delay fires.
+    //
+    // Previous bug: seeks were inside the setTimeout callback, so they only
+    // started AFTER atContextTime had already passed. The seeks then added
+    // another 50–500 ms on top, pushing playback later and later out of sync.
+    //
+    // Fix: kick off all seeks now so they complete DURING the count-in window.
+    // When the delay timer fires, seekReady is already resolved (or nearly so)
+    // and .play() is called as close to atContextTime as possible.
+    //
+    // HTMLAudioElement.currentTime is asynchronous — each element buffers/decodes
+    // independently. Calling .play() before 'seeked' fires starts each stem from
+    // a different indeterminate position. Awaiting 'seeked' on every stem
+    // guarantees they all begin from exactly the same offset.
+    const seekReady = Promise.all(channels.map(ch => {
+      ch.audio.currentTime = offsetSeconds
+      ch.audio.loop = this._looping
+      return new Promise(resolve => {
+        // Safety fallback: if 'seeked' never fires (e.g. browser skips it when
+        // seeking to the current position), resolve after 2 s rather than hanging.
+        const t = setTimeout(resolve, 2000)
+        const done = () => { clearTimeout(t); resolve() }
+        ch.audio.addEventListener('seeked', done, { once: true })
+        ch.audio.addEventListener('error',  done, { once: true })
+      })
+    }))
 
-      // Set loop flag on all channels up front.
-      for (const ch of channels) ch.audio.loop = this._looping
+    const startPlayback = async () => {
+      // For count-in paths seeks should already be done; for immediate play on
+      // slow devices we may still need to wait a moment.
+      await seekReady
 
-      // Only await 'seeked' for channels that are not already at the target
-      // position. When currentTime already equals the target, some browsers
-      // treat the assignment as a no-op and never fire 'seeked', which would
-      // leave the Promise unresolved and stall playback indefinitely.
-      //
-      // For channels that do need to move: setting currentTime is asynchronous
-      // — each element buffers/decodes independently. Calling .play() before
-      // 'seeked' fires starts stems from different positions, producing desync.
-      // Awaiting 'seeked' guarantees all of them are at the same offset before
-      // any .play() call is issued. A 3 s safety timeout guards against the
-      // (abnormal) case where 'seeked' never arrives.
-      const toSeek = channels.filter(
-        ch => Math.abs(ch.audio.currentTime - offsetSeconds) >= 0.05
-      )
-
-      if (toSeek.length > 0) {
-        await Promise.all(toSeek.map(ch => {
-          ch.audio.currentTime = offsetSeconds
-          return new Promise(resolve => {
-            ch.audio.addEventListener('seeked', resolve, { once: true })
-            ch.audio.addEventListener('error',  resolve, { once: true })
-            setTimeout(resolve, 3000)
-          })
-        }))
-      }
-
-      // If pause() or stop() was called while seeks were in flight, abort.
+      // If pause() or stop() was called while awaiting seeks, abort.
       if (this._playGeneration !== generation) return
 
       for (const ch of channels) ch.audio.play().catch(() => {})
@@ -219,9 +220,9 @@ export class AudioEngine {
 
     if (atContextTime !== undefined) {
       const delayMs = Math.max(0, (atContextTime - this._ctx.currentTime) * 1000)
-      setTimeout(doPlay, delayMs)
+      setTimeout(startPlayback, delayMs)
     } else {
-      doPlay()
+      startPlayback()
     }
   }
 
