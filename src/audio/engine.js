@@ -41,6 +41,7 @@ export class AudioEngine {
     this._rafId           = null
     this._onPositionUpdate = null
     this._onEnded          = null
+    this._playGeneration   = 0  // incremented on every play/pause/stop to cancel in-flight seeks
   }
 
   // ─── Context ─────────────────────────────────────────────────────────────────
@@ -159,19 +160,37 @@ export class AudioEngine {
   play(offsetSeconds = 0, atContextTime) {
     if (!this._ctx || this._playing) return
 
-    const doPlay = () => {
-      for (const ch of Object.values(this._channels)) {
+    const generation = ++this._playGeneration
+
+    const doPlay = async () => {
+      const channels = Object.values(this._channels)
+
+      // Seek all stems, then wait for every 'seeked' event before calling
+      // .play(). HTMLAudioElement.currentTime assignments are asynchronous —
+      // each element buffers/decodes to the new position independently. Calling
+      // .play() before 'seeked' fires starts each stem from a different
+      // indeterminate position, producing audible desync. Awaiting 'seeked' on
+      // every stem guarantees they all begin from exactly the same offset.
+      await Promise.all(channels.map(ch => {
         ch.audio.currentTime = offsetSeconds
         ch.audio.loop = this._looping
-        ch.audio.play().catch(() => {})
-      }
+        return new Promise(resolve => {
+          ch.audio.addEventListener('seeked', resolve, { once: true })
+          ch.audio.addEventListener('error',  resolve, { once: true })
+        })
+      }))
+
+      // If pause() or stop() was called while seeks were in flight, abort.
+      if (this._playGeneration !== generation) return
+
+      for (const ch of channels) ch.audio.play().catch(() => {})
       this._applyAllGains()
       this._playing     = true
       this._pauseOffset = offsetSeconds
       this._startRaf()
 
       // 'ended' on the first channel stands in for all (they finish together)
-      const firstCh = Object.values(this._channels)[0]
+      const firstCh = channels[0]
       if (firstCh && !this._looping) {
         firstCh.audio.addEventListener('ended', () => {
           if (this._playing) {
@@ -193,6 +212,7 @@ export class AudioEngine {
   }
 
   pause() {
+    this._playGeneration++ // cancel any in-flight doPlay awaiting seeks
     if (!this._playing) return
     const firstCh = Object.values(this._channels)[0]
     this._pauseOffset = firstCh?.audio.currentTime ?? this._pauseOffset
@@ -209,6 +229,7 @@ export class AudioEngine {
   }
 
   stop() {
+    this._playGeneration++ // cancel any in-flight doPlay awaiting seeks
     for (const ch of Object.values(this._channels)) {
       ch.audio.pause()
       ch.audio.currentTime = 0
