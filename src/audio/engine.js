@@ -178,11 +178,18 @@ export class AudioEngine {
     // a different indeterminate position. Awaiting 'seeked' on every stem
     // guarantees they all begin from exactly the same offset.
     const seekReady = Promise.all(channels.map(ch => {
-      ch.audio.currentTime = offsetSeconds
       ch.audio.loop = this._looping
+      // Check BEFORE writing, so we can detect a genuine no-op seek.
+      // A no-op seek (< 1 ms delta) means the browser may silently skip the
+      // 'seeked' event (observed on Safari), which would stall playback for the
+      // full 2 s safety timeout. We still write currentTime to snap the position
+      // precisely — unlike the discarded 50 ms gate that skipped the assignment
+      // entirely and left stems up to 49 ms misaligned at resume.
+      const alreadyThere = Math.abs(ch.audio.currentTime - offsetSeconds) < 0.001
+      ch.audio.currentTime = offsetSeconds
+      if (alreadyThere) return Promise.resolve()
       return new Promise(resolve => {
-        // Safety fallback: if 'seeked' never fires (e.g. browser skips it when
-        // seeking to the current position), resolve after 2 s rather than hanging.
+        // Safety fallback: if 'seeked' never fires resolve after 2 s.
         const t = setTimeout(resolve, 2000)
         const done = () => { clearTimeout(t); resolve() }
         ch.audio.addEventListener('seeked', done, { once: true })
