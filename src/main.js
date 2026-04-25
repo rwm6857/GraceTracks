@@ -14,7 +14,6 @@ function renderNav() {
   const nav = document.createElement('nav')
   nav.className = 'gt-navbar'
   nav.innerHTML = `
-    <a href="/" class="gt-navbar__brand" id="nav-home">GraceTracks</a>
     <div class="gt-navbar__actions">
       <a
         href="https://gracechords.com"
@@ -141,12 +140,6 @@ async function boot() {
   })
 
   // Navbar navigation
-  _navEl.querySelector('#nav-home').addEventListener('click', (e) => {
-    e.preventDefault()
-    history.pushState({}, '', '/')
-    render()
-  })
-
   _navEl.querySelector('#nav-upload').addEventListener('click', (e) => {
     e.preventDefault()
     history.pushState({}, '', '/upload')
