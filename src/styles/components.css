@@ -920,3 +920,14 @@
   color: var(--gc-text);
   margin: 0;
 }
+
+/* Register page — R2 stem check result (reuses .gt-upload* layout otherwise) */
+.gt-register__check-result {
+  font-size: var(--gc-font-sub);
+  color: var(--gc-text-secondary);
+  margin: var(--space-3) 0 0;
+}
+
+.gt-register__check-result--error {
+  color: var(--gc-danger);
+}

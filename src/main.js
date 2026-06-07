@@ -2,6 +2,7 @@ import './styles/main.css'
 import { renderSongPicker } from './ui/songPicker.js'
 import { renderMixer } from './ui/mixer.js'
 import { renderUploadSong } from './ui/uploadSong.js'
+import { renderRegisterSong } from './ui/registerSong.js'
 import { renderSignIn } from './ui/signIn.js'
 import { getUser, isEditorPlus, signOut, onAuthStateChange } from './lib/auth.js'
 
@@ -25,6 +26,9 @@ function renderNav() {
       <a href="/upload" class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__upload" id="nav-upload" hidden>
         Upload
       </a>
+      <a href="/register" class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__register" id="nav-register" hidden>
+        Register
+      </a>
       <button class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__auth" id="nav-auth">Sign In</button>
     </div>
   `
@@ -34,15 +38,18 @@ function renderNav() {
 
 function updateNavAuth(user) {
   if (!_navEl) return
-  const authBtn    = _navEl.querySelector('#nav-auth')
-  const uploadLink = _navEl.querySelector('#nav-upload')
+  const authBtn      = _navEl.querySelector('#nav-auth')
+  const uploadLink   = _navEl.querySelector('#nav-upload')
+  const registerLink = _navEl.querySelector('#nav-register')
 
   if (user) {
     authBtn.textContent = 'Sign Out'
     uploadLink.hidden = !isEditorPlus(user)
+    registerLink.hidden = !isEditorPlus(user)
   } else {
     authBtn.textContent = 'Sign In'
     uploadLink.hidden = true
+    registerLink.hidden = true
   }
 }
 
@@ -50,6 +57,7 @@ function updateNavAuth(user) {
 function getRoute() {
   const path = window.location.pathname
   if (path === '/upload') return { view: 'upload' }
+  if (path === '/register') return { view: 'register' }
   const m = path.match(/^\/song\/(.+)$/)
   if (m) return { view: 'mixer', slug: m[1] }
   return { view: 'picker' }
@@ -61,6 +69,7 @@ let _mixerEl      = null
 let _mixerCleanup = null
 let _pickerEl     = null
 let _uploadEl     = null
+let _registerEl   = null
 let _currentUser  = null
 
 async function render() {
@@ -70,9 +79,10 @@ async function render() {
   currentView = key
 
   // Hide all panels
-  if (_pickerEl) _pickerEl.hidden = true
-  if (_mixerEl)  _mixerEl.hidden  = true
-  if (_uploadEl) _uploadEl.hidden = true
+  if (_pickerEl)   _pickerEl.hidden   = true
+  if (_mixerEl)    _mixerEl.hidden    = true
+  if (_uploadEl)   _uploadEl.hidden   = true
+  if (_registerEl) _registerEl.hidden = true
 
   if (route.view === 'mixer') {
     // Same song already loaded — just show
@@ -102,6 +112,17 @@ async function render() {
       _uploadEl.className = 'gt-main'
       app.appendChild(_uploadEl)
       await renderUploadSong(_uploadEl, _currentUser)
+    }
+
+  } else if (route.view === 'register') {
+    if (_registerEl) {
+      _registerEl.hidden = false
+    } else {
+      _registerEl = document.createElement('main')
+      _registerEl.id = 'gt-main-register'
+      _registerEl.className = 'gt-main'
+      app.appendChild(_registerEl)
+      await renderRegisterSong(_registerEl, _currentUser)
     }
 
   } else {
@@ -138,6 +159,14 @@ async function boot() {
       currentView = null
       render()
     }
+
+    // Same for the register page
+    if (_registerEl && !_registerEl.hidden) {
+      _registerEl.remove()
+      _registerEl = null
+      currentView = null
+      render()
+    }
   })
 
   // Navbar navigation
@@ -150,6 +179,12 @@ async function boot() {
   _navEl.querySelector('#nav-upload').addEventListener('click', (e) => {
     e.preventDefault()
     history.pushState({}, '', '/upload')
+    render()
+  })
+
+  _navEl.querySelector('#nav-register').addEventListener('click', (e) => {
+    e.preventDefault()
+    history.pushState({}, '', '/register')
     render()
   })
 
