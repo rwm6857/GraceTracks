@@ -82,6 +82,28 @@ Implemented the full stem upload pipeline: Supabase auth, role-gated upload UI, 
 
 ---
 
+### 2026-06-07 — Register Existing Stems (metadata-only song registration)
+
+**Agent**: Claude
+**Branch**: `claude/pensive-hamilton-3wi8p`
+**Status**: Completed
+
+**Summary**:
+Closed the gap where stems uploaded to R2 by hand never appeared in GraceTracks because nothing wrote the `songs` row. Added a `/register` page that writes song metadata only (no file upload) after probing R2 to confirm the stem folder exists, plus a one-off SQL script to register three already-uploaded songs.
+
+**Changes**:
+- `supabase/seed/register-existing-stems.sql` — Idempotent upsert (on conflict slug) registering Great is the Lord, Let Us Sing to the Lord, In the Name of the Lord. slug = kebab URL key; stem_slug = snake_case R2 folder. Includes pre-flight SELECT to reconcile with any existing GraceChords rows.
+- `src/ui/registerSong.js` — New editor+ page: metadata form, slug → snake_case stem_slug auto-derive, "Check R2 folder" that probes `STEMS` via `resolveStemUrl` and requires ≥1 found stem before enabling Register, then upserts the `songs` row with `has_stems = true`.
+- `src/main.js` — Added `/register` route, navbar link (editor+), panel mount/hide, and auth-change re-render guard mirroring the upload page.
+- `src/styles/components.css` — Added `.gt-register__check-result` styles; otherwise reuses `.gt-upload*` layout.
+
+**Key Decisions**:
+- Kept registration separate from `/upload` (which couples file upload + DB write) rather than overloading it.
+- Require a successful R2 probe before allowing registration so empty songs can't be registered.
+- `stem_slug` is its own field (defaults to slug with hyphens → underscores) because the hand-uploaded folders are snake_case while slugs stay kebab-case.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:
