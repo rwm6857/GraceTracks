@@ -1,44 +1,41 @@
 -- =============================================================================
--- One-off: register songs whose stems were uploaded to R2 by hand
+-- One-off: make three EXISTING songs visible to GraceTracks
 -- =============================================================================
--- Run this in the Supabase SQL Editor (it runs as a superuser, so it bypasses
--- the songs_write_editor RLS policy — no editor JWT needed).
+-- These rows already exist (GraceChords created them). We are ONLY updating the
+-- GraceTracks-owned columns so the songs show up in the picker — no new rows.
 --
--- Why this is needed: GraceTracks shows a song only when a `songs` row has
--- has_stems = true AND is_deleted = false. The mixer then probes R2 at
--- /tracks/<stem_slug>/<stem>.<m4a|wav> at runtime. Uploading stems straight to
--- R2 never writes that row, so the song stays invisible until this runs.
+-- GraceTracks shows a song when has_stems = true AND is_deleted = false, then
+-- probes R2 at /tracks/<stem_slug>/<stem>.<m4a|wav>. The stems were uploaded to
+-- snake_case folders, so stem_slug MUST be set to the snake_case folder name
+-- (otherwise the probe falls back to the kebab `slug` and finds nothing).
 --
--- IMPORTANT — slug vs. stem_slug:
---   * slug      = the URL key (/song/<slug>) and the upsert conflict key.
---   * stem_slug = the R2 folder under /tracks/. These three were uploaded with
---                 snake_case folder names, so stem_slug is snake_case while the
---                 slug stays kebab-case.
---
--- BEFORE RUNNING: GraceChords shares this table. If a song already has a row,
--- confirm its existing slug matches the kebab slug below — the ON CONFLICT
--- target is `slug`, so a mismatch would insert a duplicate instead of updating.
--- Check first:
---   select slug, title, has_stems, stem_slug from songs
---   where title ilike any (array['Great is the Lord','Let Us Sing to the Lord','In the Name of the Lord']);
--- Adjust the `slug` values below to match whatever is already there.
--- =============================================================================
+-- Run in the Supabase SQL Editor (superuser — bypasses RLS).
 
-insert into songs (slug, stem_slug, title, has_stems, is_deleted)
-values
-  ('great-is-the-lord',       'great_is_the_lord',       'Great is the Lord',       true, false),
-  ('let-us-sing-to-the-lord', 'let_us_sing_to_the_lord', 'Let Us Sing to the Lord', true, false),
-  ('in-the-name-of-the-lord', 'in_the_name_of_the_lord', 'In the Name of the Lord', true, false)
-on conflict (slug) do update
-  set stem_slug = excluded.stem_slug,
-      has_stems = true,
-      is_deleted = false;
+-- 1) Confirm the rows and see their current state / exact titles first:
+select slug, title, has_stems, is_deleted, stem_slug
+from songs
+where title ilike any (array[
+  'Great is the Lord',
+  'Let Us Sing to the Lord',
+  'In the Name of the Lord'
+]);
 
--- Optional: fill in metadata you know (these are nullable; the mixer/picker
--- just shows whatever is present). Example:
---   update songs set artist = '...', tempo = 72, default_key = 'G', time_signature = '4/4'
---   where slug = 'great-is-the-lord';
+-- 2) Update only the GraceTracks columns. Matched by title so no new rows are
+--    created; adjust the WHERE titles if step 1 shows different spellings.
+update songs set has_stems = true, is_deleted = false, stem_slug = 'great_is_the_lord'
+where title = 'Great is the Lord';
 
--- Verify:
---   select slug, stem_slug, title, has_stems, is_deleted from songs
---   where slug in ('great-is-the-lord','let-us-sing-to-the-lord','in-the-name-of-the-lord');
+update songs set has_stems = true, is_deleted = false, stem_slug = 'let_us_sing_to_the_lord'
+where title = 'Let Us Sing to the Lord';
+
+update songs set has_stems = true, is_deleted = false, stem_slug = 'in_the_name_of_the_lord'
+where title = 'In the Name of the Lord';
+
+-- 3) Verify:
+select slug, title, has_stems, is_deleted, stem_slug
+from songs
+where title ilike any (array[
+  'Great is the Lord',
+  'Let Us Sing to the Lord',
+  'In the Name of the Lord'
+]);
