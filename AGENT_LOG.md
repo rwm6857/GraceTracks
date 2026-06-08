@@ -104,6 +104,51 @@ Closed the gap where stems uploaded to R2 by hand never appeared in GraceTracks 
 
 ---
 
+### 2026-06-08 — Stem sync rework: master-clock phase-lock loop
+
+**Agent**: Claude
+**Branch**: `claude/nifty-shannon-lWyhl`
+**Status**: Completed
+
+**Summary**:
+Reworked the audio engine to eliminate inter-stem drift. The previous patches
+only ever fixed *start* alignment (seek-before-play, no-op seek gate); they never
+addressed the real cause — each `HTMLMediaElement` runs on its own media clock,
+independent of the AudioContext and of every other element, so the stems drifted
+apart over the length of a song. `AudioBufferSourceNode` (sample-locked for free)
+stays off the table because of the iOS-OOM "streaming only" constraint, so instead
+the engine now runs a software phase-lock loop.
+
+**Changes**:
+- `src/audio/engine.js`:
+  - Designates the longest-loaded stem as the **master clock**; transport position
+    (`currentTime`) is read from it rather than from a synthetic clock.
+  - Added a 200 ms drift-correction loop (`_correctDrift`) that nudges every other
+    stem's `playbackRate` toward the master — proportional (gain 0.6, capped ±5%)
+    above a 15 ms deadband for pop-free convergence, with a hard re-seek only past a
+    400 ms gap (stall/background-throttle recovery).
+  - `loadStem` now sets `preservesPitch=false` (+ vendor prefixes) so nudges are a
+    clean resample rather than a transient-smearing time-stretch.
+  - `pause`/`stop`/`seekTo` reset all `playbackRate`s to 1.0; `dispose`/`stop` stop
+    the correction loop. Added `getSyncReport()` for console diagnostics.
+- `src/audio/engine.test.js`:
+  - Added single-step correction tests (9a–9f: ahead/behind nudge, deadband reset,
+    hard-seek recovery, master never adjusted, no-op when paused).
+  - Added "no drift over time" convergence simulations (9g–9j): converges a 120 ms
+    start skew into the deadband within ~5 s, and holds a continuously ±0.4%-skewing
+    clock under ~16 ms for a 4-min (and 10-min) song — proving error stays bounded
+    instead of accumulating. Full suite: 21 passing.
+
+**Key Decisions**:
+- Kept the streaming `MediaElementAudioSourceNode` architecture (no `decodeAudioData`,
+  no framework) per project constraints — the fix is a control loop, not a rewrite.
+- Click/ambient stems keep rolling at gain 0 when "off," so toggling them mid-playback
+  is an instant in-sync unmute; the corrector keeps them locked like any other stem.
+- Soft `playbackRate` correction over hard re-seeks to avoid audible pops during normal
+  playback; hard seek reserved for large-gap recovery.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

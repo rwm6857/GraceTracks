@@ -1,15 +1,16 @@
 /**
  * AudioEngine unit tests
  *
- * Focus areas (all touched by the play-merge-conflict fix):
+ * Focus areas:
  *   1. seekReady — no-op fast-path (< 1 ms delta resolves immediately)
  *   2. seekReady — real-seek path (waits for 'seeked', then plays)
  *   3. seekReady — currentTime is always written, even on no-op seeks
  *   4. seekReady — ALL channels are seeked; no 50 ms tolerance gate
  *   5. Generation guard — pause/stop during in-flight seek aborts playback
  *   6. Count-in — seeks start before the setTimeout delay, not inside it
- *   7. pause() — _pauseOffset captured from first channel's currentTime
+ *   7. pause() — _pauseOffset captured from the master clock's currentTime
  *   8. stop()  — resets every channel to 0 and clears _pauseOffset
+ *   9. Drift correction — slaves are nudged toward the master (the phase-lock loop)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -25,6 +26,8 @@ function makeFakeAudio(initialTime = 0) {
     get currentTime() { return this._currentTime },
     set currentTime(v) { this._currentTime = v },
     loop: false,
+    playbackRate: 1,
+    preservesPitch: true,
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
     duration: 120,
@@ -87,6 +90,9 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // play() starts a setInterval drift-correction loop — clear it so a pending
+  // fake timer can't leak into the next test.
+  engine?._stopDriftCorrection?.()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -110,8 +116,10 @@ describe('AudioEngine.play() — seekReady logic', () => {
     await Promise.resolve()  // flush Promise.all + startPlayback async chain
 
     expect(played).toBe(true)
-    // 2 s safety timer must NOT have been used
-    expect(vi.getTimerCount()).toBe(0)
+    expect(engine._playing).toBe(true)
+    // The only pending timer is the drift-correction interval — the 2 s 'seeked'
+    // safety timeout must NOT have been armed for a no-op seek.
+    expect(vi.getTimerCount()).toBe(1)
   })
 
   it('2. real seek: waits for seeked before calling audio.play()', async () => {
@@ -242,7 +250,7 @@ describe('AudioEngine.play() — seekReady logic', () => {
 
 describe('AudioEngine.pause()', () => {
 
-  it('7. captures _pauseOffset from first channel currentTime', async () => {
+  it('7. captures _pauseOffset from the master clock currentTime', async () => {
     const audio = makeFakeAudio(0)
     injectChannel(engine, 'drums', audio)
 
@@ -285,6 +293,122 @@ describe('AudioEngine.stop()', () => {
     expect(bass._currentTime).toBe(0)
     expect(engine._pauseOffset).toBe(0)
     expect(engine._playing).toBe(false)
+  })
+
+})
+
+describe('AudioEngine drift correction (phase-lock loop)', () => {
+
+  /** Wire two channels and mark the engine as playing, master = drums. */
+  function setupMasterSlave(masterTime, slaveTime) {
+    const master = makeFakeAudio(masterTime)
+    const slave  = makeFakeAudio(slaveTime)
+    injectChannel(engine, 'drums', master)
+    injectChannel(engine, 'bass',  slave)
+    engine._masterName = 'drums'
+    engine._playing = true
+    return { master, slave }
+  }
+
+  it('9a. slave ahead of master is slowed (playbackRate < 1)', () => {
+    const { slave } = setupMasterSlave(10.0, 10.1)  // 100 ms ahead
+    engine._correctDrift()
+    expect(slave.playbackRate).toBeLessThan(1)
+    // Clamped to the ±5% max — never an extreme rate.
+    expect(slave.playbackRate).toBeGreaterThanOrEqual(0.95)
+  })
+
+  it('9b. slave behind master is sped up (playbackRate > 1)', () => {
+    const { slave } = setupMasterSlave(10.0, 9.97)  // 30 ms behind
+    engine._correctDrift()
+    expect(slave.playbackRate).toBeGreaterThan(1)
+    expect(slave.playbackRate).toBeLessThanOrEqual(1.05)
+  })
+
+  it('9c. drift inside the deadband snaps the rate back to 1.0', () => {
+    const { slave } = setupMasterSlave(10.0, 10.005)  // 5 ms — inside 15 ms deadband
+    slave.playbackRate = 0.97  // pretend a previous nudge is still applied
+    engine._correctDrift()
+    expect(slave.playbackRate).toBe(1)
+  })
+
+  it('9d. drift beyond the hard threshold hard-seeks the slave', () => {
+    const { slave } = setupMasterSlave(10.0, 11.5)  // 1.5 s — way past 0.4 s hard limit
+    engine._correctDrift()
+    expect(slave._currentTime).toBe(10.0)  // snapped onto the master
+    expect(slave.playbackRate).toBe(1)
+  })
+
+  it('9e. the master clock itself is never rate-adjusted', () => {
+    const { master } = setupMasterSlave(10.0, 10.2)
+    master.playbackRate = 1.3  // simulate a stray value
+    engine._correctDrift()
+    expect(master.playbackRate).toBe(1)
+  })
+
+  it('9f. correction is a no-op when paused', () => {
+    const { slave } = setupMasterSlave(10.0, 10.5)
+    engine._playing = false
+    engine._correctDrift()
+    expect(slave.playbackRate).toBe(1)  // untouched
+  })
+
+})
+
+describe('AudioEngine — no drift over time (phase-lock convergence)', () => {
+
+  // Simulate playback by stepping a virtual clock at the same cadence as the
+  // real correction loop (DRIFT_INTERVAL_MS = 200 ms). The master advances at a
+  // true 1.0×; the slave advances at its own intrinsic clock rate MULTIPLIED by
+  // whatever playbackRate the corrector last applied — i.e. exactly how an out-of-
+  // spec media clock behaves once the engine starts nudging it.
+  const STEP = 0.2  // seconds per tick, matches DRIFT_INTERVAL_MS
+
+  function simulate({ slaveIntrinsicRate = 1, initialSlaveOffset = 0, seconds }) {
+    const master = makeFakeAudio(0)
+    const slave  = makeFakeAudio(initialSlaveOffset)
+    injectChannel(engine, 'drums', master)
+    injectChannel(engine, 'bass',  slave)
+    engine._masterName = 'drums'
+    engine._playing = true
+
+    const steps = Math.round(seconds / STEP)
+    let maxAbsDrift = 0
+    for (let i = 0; i < steps; i++) {
+      master._currentTime += STEP * 1.0
+      slave._currentTime  += STEP * slaveIntrinsicRate * slave.playbackRate
+      engine._correctDrift()
+      maxAbsDrift = Math.max(maxAbsDrift, Math.abs(slave._currentTime - master._currentTime))
+    }
+    return { master, slave, finalDrift: slave._currentTime - master._currentTime, maxAbsDrift }
+  }
+
+  it('9g. converges a large initial start skew down into the deadband within ~5 s', () => {
+    // Stems started 120 ms apart but share a perfect clock thereafter.
+    const { finalDrift } = simulate({ initialSlaveOffset: 0.12, seconds: 6 })
+    // Pulled to within the in-sync deadband (15 ms) — no audible flam remains.
+    expect(Math.abs(finalDrift)).toBeLessThan(0.016)
+  })
+
+  it('9h. a continuously-skewing clock never accumulates drift over a 4-min song', () => {
+    // 0.4% fast clock: WITHOUT correction this drifts 0.004 * 240 ≈ 960 ms apart.
+    const { maxAbsDrift, finalDrift } = simulate({ slaveIntrinsicRate: 1.004, seconds: 240 })
+    // WITH the phase-lock loop it stays pinned near the deadband for the whole song.
+    expect(maxAbsDrift).toBeLessThan(0.03)
+    expect(Math.abs(finalDrift)).toBeLessThan(0.03)
+  })
+
+  it('9i. a slow clock (0.4% behind) is held just as tightly', () => {
+    const { maxAbsDrift } = simulate({ slaveIntrinsicRate: 0.996, seconds: 240 })
+    expect(maxAbsDrift).toBeLessThan(0.03)
+  })
+
+  it('9j. drift is bounded — it does not grow with song length', () => {
+    const short = simulate({ slaveIntrinsicRate: 1.004, seconds: 60 })
+    const long  = simulate({ slaveIntrinsicRate: 1.004, seconds: 600 })
+    // A 10× longer song must not produce meaningfully more drift — proof the loop
+    // corrects continuously rather than letting error pile up.
+    expect(long.maxAbsDrift).toBeLessThan(short.maxAbsDrift + 0.005)
   })
 
 })
