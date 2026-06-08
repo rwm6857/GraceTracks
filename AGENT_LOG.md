@@ -149,6 +149,46 @@ the engine now runs a software phase-lock loop.
 
 ---
 
+### 2026-06-08 — DAW-sync investigation: on-device spike + Option B plan
+
+**Agent**: Claude
+**Branch**: `claude/nifty-shannon-lWyhl`
+**Status**: In Progress (planning + validation harness)
+
+**Summary**:
+Investigated what it takes for playback to behave like a DAW (sample-locked, zero
+drift). Built a self-contained on-device spike (`public/stem-spike.html`) to measure
+whether full-decode is viable, then wrote a full implementation plan for the streaming
+AudioWorklet engine (Option B) and added an on-device streaming test to the spike page.
+
+**Spike findings** (iPhone, iOS 18.7 / Safari 26.5, `great_is_the_lord`: 8 stems, 6.24 min,
+48 kHz stereo):
+- Decode is fast (1.75 s for all 8). Single-clock sample-locked playback sounds tight on iOS.
+- Int16 PCM total: 548 MB (too heavy to keep resident on constrained devices).
+- Float32 hold: 1.10 GB → **tab force-refresh (OOM) even on a flagship**.
+- Conclusion: `AudioBuffer` is always Float32 and `AudioBufferSourceNode` needs the whole
+  buffer resident, so full-decode (Option A) is non-viable for real-length songs. The path
+  is Option B — one clock, but stream PCM into it.
+
+**Changes**:
+- `docs/STREAMING_ENGINE_PLAN.md` — full Option B plan: architecture (R2 → mp4box demux →
+  WebCodecs `AudioDecoder` → per-stem ring buffers → `AudioWorklet` mixer under one clock),
+  ~12 MB bounded memory model, seek/loop/transport design, browser-support matrix + fallback
+  (WAV-PCM streaming or today's phase-lock engine), API compatibility (keep `engine.js`
+  surface so the UI is untouched), milestones M0–M5, risks, and the on-device validation plan.
+- `public/stem-spike.html` — added an "Option B — Streaming worklet test": a WebCodecs AAC
+  capability probe and an `AudioWorklet` "stem-mixer" that plays the decoded stems fed in
+  200 ms chunks at a configurable lookahead, reporting underruns (glitches) and peak ring
+  (playback) memory, plus a seek test. Results merge into the existing JSON export.
+
+**Key Decisions**:
+- Killed Option A with hard on-device evidence before building it (the spike's purpose).
+- v1 streaming feeds the worklet via `postMessage` transfer (no `SharedArrayBuffer`) to avoid
+  forcing COOP/COEP + CORP headers on the cross-origin R2.
+- Keep the phase-lock `MediaElement` engine as the fallback for browsers without WebCodecs audio.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

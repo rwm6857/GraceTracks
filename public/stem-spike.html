@@ -114,6 +114,34 @@
     <div id="verdict"></div>
   </div>
 
+  <div class="card">
+    <h1 style="font-size:16px">Option B — Streaming worklet test</h1>
+    <p class="sub" style="margin:4px 0 10px">
+      Proves the streaming engine's runtime: plays the decoded stems through an
+      <code>AudioWorklet</code> mixer fed in small chunks (only a few seconds buffered ahead),
+      under one clock. Watch <strong>underruns</strong> (glitches) and <strong>peak ring memory</strong>
+      — playback RAM should be tiny vs the Int16 total. Run the decode above first.
+    </p>
+    <div class="row">
+      <label for="look" style="margin:0">Lookahead (s)</label>
+      <input id="look" type="text" value="4" style="width:64px" inputmode="decimal" />
+      <button id="wcProbe">Probe WebCodecs (AAC)</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="wplay" class="primary" disabled>▶ Play via worklet</button>
+      <button id="wseek" disabled>⇥ Seek test (50% → 0)</button>
+      <button id="wstop" class="danger" disabled>■ Stop</button>
+    </div>
+    <div class="totals" style="margin-top:12px">
+      <div><span>WebCodecs AAC decode</span><span id="sWC">—</span></div>
+      <div><span>Worklet</span><span id="sWL">—</span></div>
+      <div><span>Lookahead</span><span id="sLook">—</span></div>
+      <div><span>Position</span><span id="sPos">—</span></div>
+      <div><span class="big">Underruns (glitches)</span><span class="big" id="sUnder">—</span></div>
+      <div><span class="big">Peak ring memory (playback)</span><span class="big" id="sRing">—</span></div>
+    </div>
+  </div>
+
   <div class="log" id="log"></div>
 
 <script>
@@ -135,6 +163,18 @@ let ctx = null;
 let decoded = [];      // { name, buffer (AudioBuffer|null), int16:[Int16Array per ch], length, channels, rate }
 let sources = [];      // active AudioBufferSourceNodes during playback
 let lastResults = null; // structured snapshot for JSON export
+
+// ── Option B streaming-worklet test state ──────────────────────────────────────
+let wlNode = null;        // AudioWorkletNode (the "stem-mixer")
+let wlModuleLoaded = false;
+let pumpTimer = null;     // main-thread feeder interval
+let wlReadSample = [];    // per-stem read cursor into the Int16 source
+let wlQueuedSample = [];  // per-stem samples handed to the worklet
+let wlPlayhead = 0;       // frames the worklet has rendered (from its messages)
+let wlUnderruns = 0;
+let wlPeakRingBytes = 0;  // peak Float32 PCM held in the worklet's queues (the playback footprint)
+let wlPosTimer = null;    // UI position updater
+let streamingResults = null;
 
 function ensureCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -286,7 +326,10 @@ async function run() {
   $('run').disabled = false;
   $('play').disabled = false;
   $('export').disabled = false;
-  log('\nDecode complete. Tap “▶ Play sample-locked” to hear all stems on one clock, then “⧉ Copy results JSON” and paste it back to Claude.');
+  $('wplay').disabled = false;
+  $('wseek').disabled = false;
+  $('sLook').textContent = $('look').value + ' s';
+  log('\nDecode complete. Try “▶ Play sample-locked”, then the Option B “▶ Play via worklet” test, then “⧉ Copy results JSON”.');
 }
 
 function renderVerdict(tFloat, tInt) {
@@ -357,6 +400,7 @@ async function play() {
 
 async function exportResults() {
   if (!lastResults) return;
+  if (streamingResults) lastResults.streaming = streamingResults;
   const json = JSON.stringify(lastResults, null, 2);
   const ta = $('exportText');
   ta.style.display = 'block';
@@ -373,10 +417,225 @@ async function exportResults() {
              : '\nClipboard blocked — select all text in the box above and copy it manually.');
 }
 
+// ── Option B: WebCodecs capability probe ───────────────────────────────────────
+async function probeWebCodecs() {
+  const rate = ctx ? ctx.sampleRate : 48000;
+  if (typeof AudioDecoder === 'undefined') {
+    $('sWC').textContent = 'AudioDecoder: not available';
+    log('\nWebCodecs AudioDecoder is undefined on this browser → AAC streaming path unavailable; fallback (WAV-PCM or phase-lock) would be used.');
+    return { available: false };
+  }
+  let supported = false, detail = '';
+  try {
+    const r = await AudioDecoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: rate, numberOfChannels: 2 });
+    supported = !!r.supported; detail = r.supported ? 'supported' : 'config not supported';
+  } catch (e) { detail = 'error: ' + e.message; }
+  $('sWC').textContent = `AAC (mp4a.40.2): ${supported ? 'supported ✓' : detail}`;
+  log(`\nWebCodecs AAC decode @${rate}Hz: ${supported ? 'SUPPORTED — production streaming path works here.' : detail}`);
+  return { available: true, aacSupported: supported, detail };
+}
+
+// The AudioWorkletProcessor source. It maintains a per-stem queue of Float32 chunk
+// pairs and mixes 128 frames/quantum under the single AudioContext clock. Missing data
+// → silence + underrun (the mix never stalls, so all stems stay sample-locked).
+const WORKLET_SRC = `
+class StemMixer extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.q = [];          // q[stem] = array of {a:Float32Array, b:Float32Array}
+    this.off = [];        // read offset into the front chunk per stem
+    this.gain = [];
+    this.n = 0;
+    this.playing = false;
+    this.frames = 0;
+    this.underruns = 0;
+    this.report = 0;
+    this.port.onmessage = (e) => {
+      const m = e.data;
+      if (m.type === 'config') {
+        this.n = m.n; this.gain = m.gain.slice();
+        this.q = Array.from({length:this.n}, () => []);
+        this.off = new Array(this.n).fill(0);
+      } else if (m.type === 'data') {
+        this.q[m.stem].push({ a: m.a, b: m.b });
+      } else if (m.type === 'gain') {
+        this.gain[m.stem] = m.value;
+      } else if (m.type === 'play') {
+        this.playing = true;
+      } else if (m.type === 'pause') {
+        this.playing = false;
+      } else if (m.type === 'flush') {
+        this.q = Array.from({length:this.n}, () => []);
+        this.off = new Array(this.n).fill(0);
+        this.frames = m.frames || 0;
+      }
+    };
+  }
+  process(_, outputs) {
+    const out = outputs[0];
+    const L = out[0], R = out[1] || out[0];
+    const N = L.length;
+    if (!this.playing) { L.fill(0); R.fill(0); return true; }
+    for (let i = 0; i < N; i++) {
+      let l = 0, r = 0;
+      for (let s = 0; s < this.n; s++) {
+        const queue = this.q[s];
+        if (queue.length === 0) { this.underruns++; continue; }
+        const chunk = queue[0];
+        const o = this.off[s];
+        const g = this.gain[s];
+        l += chunk.a[o] * g;
+        r += chunk.b[o] * g;
+        if (++this.off[s] >= chunk.a.length) { queue.shift(); this.off[s] = 0; }
+      }
+      L[i] = l; R[i] = r;
+    }
+    this.frames += N;
+    this.report += N;
+    if (this.report >= sampleRate / 10) {  // ~10 Hz status
+      this.report = 0;
+      let queued = 0;
+      for (let s = 0; s < this.n; s++) for (const c of this.q[s]) queued += c.a.length;
+      this.port.postMessage({ type: 'status', frames: this.frames, underruns: this.underruns, queued });
+    }
+    return true;
+  }
+}
+registerProcessor('stem-mixer', StemMixer);
+`;
+
+async function ensureWorklet(c) {
+  if (wlModuleLoaded) return;
+  const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }));
+  await c.audioWorklet.addModule(url);
+  URL.revokeObjectURL(url);
+  wlModuleLoaded = true;
+}
+
+function gainFor(name) { return (name === 'click' || name === 'ambient') ? 0 : 0.5; }
+
+function startPump(c) {
+  const rate = c.sampleRate;
+  const lookahead = Math.max(0.5, parseFloat($('look').value) || 4);
+  const lookSamples = Math.round(lookahead * rate);
+  const chunkSamples = Math.round(0.2 * rate); // 200 ms chunks
+  const pump = () => {
+    for (let s = 0; s < decoded.length; s++) {
+      const d = decoded[s];
+      // keep each stem buffered ~lookahead ahead of the shared playhead
+      while (wlQueuedSample[s] - wlPlayhead < lookSamples && wlReadSample[s] < d.length) {
+        const n = Math.min(chunkSamples, d.length - wlReadSample[s]);
+        const a = new Float32Array(n), b = new Float32Array(n);
+        const src0 = d.int16[0], src1 = d.int16[1] || d.int16[0];
+        const start = wlReadSample[s];
+        for (let i = 0; i < n; i++) {
+          const v0 = src0[start + i], v1 = src1[start + i];
+          a[i] = v0 / (v0 < 0 ? 0x8000 : 0x7FFF);
+          b[i] = v1 / (v1 < 0 ? 0x8000 : 0x7FFF);
+        }
+        wlNode.port.postMessage({ type: 'data', stem: s, a, b }, [a.buffer, b.buffer]);
+        wlReadSample[s] += n;
+        wlQueuedSample[s] += n;
+      }
+    }
+  };
+  pump();
+  pumpTimer = setInterval(pump, 50);
+}
+
+async function workletPlay() {
+  stopPlayback();        // stop any AudioBufferSourceNode playback
+  stopWorklet(true);     // reset streaming state
+  if (!decoded.length) { log('Run the decode first.'); return; }
+  const c = ensureCtx();
+  await c.resume();
+  await ensureWorklet(c);
+
+  wlReadSample = decoded.map(() => 0);
+  wlQueuedSample = decoded.map(() => 0);
+  wlPlayhead = 0; wlUnderruns = 0; wlPeakRingBytes = 0;
+
+  wlNode = new AudioWorkletNode(c, 'stem-mixer', { outputChannelCount: [2] });
+  wlNode.connect(c.destination);
+  wlNode.port.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === 'status') {
+      wlPlayhead = m.frames; wlUnderruns = m.underruns;
+      wlPeakRingBytes = Math.max(wlPeakRingBytes, m.queued * 8); // each queued sample = 2ch × 4B
+    }
+  };
+  wlNode.port.postMessage({ type: 'config', n: decoded.length, gain: decoded.map(d => gainFor(d.name)) });
+
+  startPump(c);
+  wlNode.port.postMessage({ type: 'play' });
+
+  $('sWL').textContent = 'playing (streaming-style)';
+  $('sLook').textContent = (parseFloat($('look').value) || 4) + ' s';
+  $('wplay').disabled = true; $('wstop').disabled = false; $('wseek').disabled = false;
+
+  const rate = c.sampleRate;
+  wlPosTimer = setInterval(() => {
+    $('sPos').textContent = (wlPlayhead / rate).toFixed(1) + ' s';
+    $('sUnder').textContent = wlUnderruns;
+    $('sRing').textContent = fmtMB(wlPeakRingBytes);
+    captureStreaming(rate, wlPeakRingBytes);
+  }, 200);
+  log(`\nWorklet streaming test: ${decoded.length} stems, ${(parseFloat($('look').value)||4)}s lookahead. ` +
+      `Listen for glitches; watch underruns + peak ring memory.`);
+}
+
+function workletSeek() {
+  if (!wlNode) return;
+  const c = ctx, rate = c.sampleRate;
+  const target = Math.round(decoded[0].length * 0.5); // jump to 50%
+  doWorkletSeek(target, rate);
+  log(`Seek → 50% (${(target/rate).toFixed(1)}s). After ~1s it returns to 0 to confirm re-lock.`);
+  setTimeout(() => doWorkletSeek(0, rate), 1200);
+}
+
+function doWorkletSeek(targetSample, rate) {
+  wlNode.port.postMessage({ type: 'pause' });
+  wlNode.port.postMessage({ type: 'flush', frames: targetSample });
+  for (let s = 0; s < decoded.length; s++) { wlReadSample[s] = targetSample; wlQueuedSample[s] = targetSample; }
+  wlPlayhead = targetSample;
+  // pump refills synchronously on next tick; resume right after a brief prime
+  setTimeout(() => { if (wlNode) wlNode.port.postMessage({ type: 'play' }); }, 80);
+}
+
+function captureStreaming(rate, ringBytes) {
+  streamingResults = {
+    webCodecs: $('sWC').textContent,
+    audioWorklet: typeof AudioWorkletNode !== 'undefined',
+    lookaheadSec: parseFloat($('look').value) || 4,
+    stems: decoded.length,
+    positionSec: +(wlPlayhead / rate).toFixed(1),
+    underruns: wlUnderruns,
+    peakRingBytes: ringBytes,
+    peakRingMB: +(ringBytes / 1048576).toFixed(2),
+    contextSampleRate: rate,
+  };
+}
+
+function stopWorklet(silent) {
+  if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = null; }
+  if (wlPosTimer) { clearInterval(wlPosTimer); wlPosTimer = null; }
+  if (wlNode) {
+    try { wlNode.port.postMessage({ type: 'pause' }); } catch (_) {}
+    try { wlNode.disconnect(); } catch (_) {}
+    wlNode = null;
+  }
+  $('wplay').disabled = !decoded.length; $('wstop').disabled = true;
+  if (!silent) { $('sWL').textContent = 'stopped'; log('\nWorklet test stopped.'); }
+}
+
 $('run').addEventListener('click', () => run().catch(e => { log('ERROR: ' + e.message); $('run').disabled = false; }));
 $('play').addEventListener('click', () => play().catch(e => log('PLAY ERROR: ' + e.message)));
 $('stop').addEventListener('click', stopPlayback);
 $('export').addEventListener('click', () => exportResults().catch(e => log('EXPORT ERROR: ' + e.message)));
+$('wcProbe').addEventListener('click', () => { ensureCtx(); probeWebCodecs().then(r => { streamingResults = Object.assign(streamingResults||{}, { probe: r }); }).catch(e => log('WC PROBE ERROR: ' + e.message)); });
+$('wplay').addEventListener('click', () => workletPlay().catch(e => log('WORKLET ERROR: ' + e.message)));
+$('wseek').addEventListener('click', () => { try { workletSeek(); } catch (e) { log('SEEK ERROR: ' + e.message); } });
+$('wstop').addEventListener('click', () => stopWorklet(false));
 </script>
 </body>
 </html>
