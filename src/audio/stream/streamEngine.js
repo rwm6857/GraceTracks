@@ -52,6 +52,32 @@ export class StreamAudioEngine {
     this._onPositionUpdate = null
     this._onEnded = null
     this._playGeneration = 0
+    // On-screen diagnostics (no console needed on iOS). On when ?engine=stream or ?debug.
+    this._diagEl = null
+    try { this._diagEnabled = /[?&](engine=stream|debug)/.test(location.search) } catch { this._diagEnabled = false }
+  }
+
+  /** Append a line to an on-screen diagnostic panel (and the console). */
+  _diag(msg) {
+    try { console.info('[stream]', msg) } catch {}
+    if (!this._diagEnabled || typeof document === 'undefined') return
+    if (!this._diagEl) {
+      const el = document.createElement('div')
+      el.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;max-height:40vh;overflow:auto;' +
+        'z-index:99999;background:rgba(16,14,11,.92);color:#f0ebe3;font:11px ui-monospace,monospace;' +
+        'padding:8px 10px;border:1px solid #2e261e;border-radius:10px;white-space:pre-wrap'
+      const close = document.createElement('button')
+      close.textContent = '×'
+      close.style.cssText = 'position:sticky;top:0;float:right;background:none;border:none;color:#a89484;font-size:16px;cursor:pointer'
+      close.onclick = () => { el.remove(); this._diagEl = null }
+      el.appendChild(close)
+      document.body.appendChild(el)
+      this._diagEl = el
+    }
+    const line = document.createElement('div')
+    line.textContent = msg
+    this._diagEl.appendChild(line)
+    this._diagEl.scrollTop = this._diagEl.scrollHeight
   }
 
   get context() { return this._ctx }
@@ -124,6 +150,7 @@ export class StreamAudioEngine {
     this._channels[stemName] = ch
     this._order.push(stemName)
     if (ch.durationSec > this._duration) this._duration = ch.durationSec
+    this._diag(`loaded ${stemName} [${ch.kind}] ${ch.durationSec.toFixed(1)}s ${ch.channels}ch @${ch.sampleRate}`)
     return stemName
   }
 
@@ -135,9 +162,11 @@ export class StreamAudioEngine {
 
   async _buildAacChannel(name, arrayBuffer) {
     const { config, durationSec, chunks } = await demuxM4a(arrayBuffer)
+    this._diag(`${name}: demux ok — codec=${config.codec} chunks=${chunks.length} ` +
+      `asc=${config.description ? config.description.length + 'B' : 'NONE'} dur=${durationSec.toFixed(1)}s`)
     const decoder = new AudioDecoder({
       output: (audioData) => this._onDecoded(name, audioData),
-      error: (e) => console.warn(`[GraceTracks] decoder error on "${name}":`, e?.message || e),
+      error: (e) => this._diag(`${name}: DECODER ERROR — ${e?.message || e}`),
     })
     const cfg = {
       codec: config.codec,
@@ -146,6 +175,7 @@ export class StreamAudioEngine {
     }
     if (config.description) cfg.description = config.description
     decoder.configure(cfg)
+    this._diag(`${name}: decoder.configure() ok`)
 
     return {
       name, kind: 'aac',
@@ -194,6 +224,7 @@ export class StreamAudioEngine {
     audioData.close()
     const transfer = b === a ? [a.buffer] : [a.buffer, b.buffer]
     ch.player.port.postMessage({ type: 'data', startSample, a, b }, transfer)
+    if (!ch._firstDecoded) { ch._firstDecoded = true; this._diag(`${name}: first PCM decoded @sample ${startSample} (${frames} frames)`) }
   }
 
   // ─── Feeding / decode-ahead ──────────────────────────────────────────────────
@@ -273,6 +304,7 @@ export class StreamAudioEngine {
 
     const begin = () => {
       if (this._playGeneration !== generation) return // cancelled by pause/stop
+      this._diag(`play @${offset.toFixed(1)}s (${channels.length} stems)`)
       for (const ch of channels) ch.player.port.postMessage({ type: 'play' })
       this._startCtx = this._ctx.currentTime
       this._startOffset = offset
