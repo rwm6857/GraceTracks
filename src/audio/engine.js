@@ -13,9 +13,43 @@
  *   MediaElementAudioSourceNode connects an <audio> element directly into the
  *   Web Audio graph; the browser streams and decodes on the fly so memory stays
  *   near the compressed file size. Full 44.1 kHz stereo is preserved.
+ *
+ * Keeping the stems in sync — the hard problem:
+ *   Each HTMLAudioElement runs on its OWN media clock, independent of the shared
+ *   AudioContext clock and of every other element. Seeking them all to the same
+ *   offset and calling .play() in one tick aligns the START, but the independent
+ *   clocks then drift apart by tens-to-hundreds of ms over the length of a song.
+ *   No amount of start-time coordination fixes that ongoing drift — which is why
+ *   earlier "seek before play" patches only ever half-solved it.
+ *
+ *   AudioBufferSourceNode would be sample-locked for free, but it's off the table
+ *   (see memory note above). So instead we run a software phase-locked loop:
+ *     • One stem (the longest) is the MASTER clock. Transport position == its
+ *       currentTime.
+ *     • Every other stem is a SLAVE, continuously nudged toward the master via
+ *       small playbackRate adjustments (a soft, pop-free correction). A hard
+ *       re-seek is only used to recover from a large gap (e.g. a decode stall).
+ *   The result: all stems stay locked to a single clock for the whole song.
  */
 
 export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'click', 'ambient']
+
+// ─── Drift-correction (phase-lock) tuning ──────────────────────────────────────
+// How often slaves are measured against the master and re-aligned.
+const DRIFT_INTERVAL_MS = 200
+// Within this much of the master a slave is considered in sync — run at 1.0×.
+// 15 ms is below the threshold most listeners perceive as a flam on transients.
+const DRIFT_DEADBAND    = 0.015
+// Above this, a soft playbackRate nudge can't realistically catch up (the stem
+// stalled or the tab was throttled in the background) — hard re-seek instead and
+// accept one brief glitch in exchange for staying locked.
+const DRIFT_HARD        = 0.4
+// Proportional gain: playbackRate delta per second of measured drift.
+// time-constant ≈ 1/GAIN ≈ 1.7 s, so a 30 ms skew is pulled to ~4 ms in ~3 s.
+const DRIFT_GAIN        = 0.6
+// Clamp the nudge so the transient pitch shift while converging stays subtle
+// (±5% ≈ under a semitone, and only on a stem that has actually drifted).
+const DRIFT_MAX_RATE    = 0.05
 
 // Fader scale: 0-1 input range maps to:
 //   0    → -∞ dB (silence)
@@ -39,6 +73,8 @@ export class AudioEngine {
     this._duration    = 0
     this._soloedChannel   = null
     this._rafId           = null
+    this._correctionTimer = null  // setInterval id for the drift-correction loop
+    this._masterName      = null  // channel whose currentTime is the transport clock
     this._onPositionUpdate = null
     this._onEnded          = null
     this._playGeneration   = 0  // incremented on every play/pause/stop to cancel in-flight seeks
@@ -96,6 +132,14 @@ export class AudioEngine {
     const audio   = new Audio(blobUrl)
     audio.preload = 'auto'
 
+    // Drift correction nudges playbackRate. Disable pitch preservation so a nudge
+    // is a clean resample (a microscopic, transient pitch shift) rather than a
+    // time-stretch, which smears transients and sounds worse on music. The vendor
+    // prefixes cover older Safari/Firefox.
+    audio.preservesPitch = false
+    audio.mozPreservesPitch = false
+    audio.webkitPreservesPitch = false
+
     // Wait for metadata (gives us audio.duration).
     // Blob URLs are local — no network restriction applies, so this fires quickly
     // even on iOS where network-URL preloading is blocked without a user gesture.
@@ -144,6 +188,7 @@ export class AudioEngine {
     this._channels    = {}
     this._duration    = 0
     this._pauseOffset = 0
+    this._masterName  = null
     this._soloedChannel = null
   }
 
@@ -176,9 +221,11 @@ export class AudioEngine {
     // HTMLAudioElement.currentTime is asynchronous — each element buffers/decodes
     // independently. Calling .play() before 'seeked' fires starts each stem from
     // a different indeterminate position. Awaiting 'seeked' on every stem
-    // guarantees they all begin from exactly the same offset.
+    // guarantees they all begin from exactly the same offset; the drift-correction
+    // loop then keeps them there for the rest of the song.
     const seekReady = Promise.all(channels.map(ch => {
       ch.audio.loop = this._looping
+      ch.audio.playbackRate = 1  // clear any nudge left over from a prior play
       // Check BEFORE writing, so we can detect a genuine no-op seek.
       // A no-op seek (< 1 ms delta) means the browser may silently skip the
       // 'seeked' event (observed on Safari), which would stall playback for the
@@ -205,20 +252,29 @@ export class AudioEngine {
       // If pause() or stop() was called while awaiting seeks, abort.
       if (this._playGeneration !== generation) return
 
-      for (const ch of channels) ch.audio.play().catch(() => {})
+      // Choose the clock master (longest stem) now that durations are known.
+      this._recomputeMaster()
+
+      for (const ch of channels) {
+        ch.audio.playbackRate = 1
+        ch.audio.play().catch(() => {})
+      }
       this._applyAllGains()
       this._playing     = true
       this._pauseOffset = offsetSeconds
       this._startRaf()
+      this._startDriftCorrection()
 
-      // 'ended' on the first channel stands in for all (they finish together)
-      const firstCh = channels[0]
-      if (firstCh && !this._looping) {
-        firstCh.audio.addEventListener('ended', () => {
+      // 'ended' on the master stands in for all (they finish together)
+      const master = this._channels[this._masterName]
+      if (master && !this._looping) {
+        master.audio.addEventListener('ended', () => {
           if (this._playing) {
             this._playing     = false
             this._pauseOffset = 0
             this._stopRaf()
+            this._stopDriftCorrection()
+            for (const c of Object.values(this._channels)) c.audio.playbackRate = 1
             this._onEnded?.()
           }
         }, { once: true })
@@ -236,16 +292,22 @@ export class AudioEngine {
   pause() {
     this._playGeneration++ // cancel any in-flight doPlay awaiting seeks
     if (!this._playing) return
-    const firstCh = Object.values(this._channels)[0]
-    this._pauseOffset = firstCh?.audio.currentTime ?? this._pauseOffset
-    for (const ch of Object.values(this._channels)) ch.audio.pause()
+    this._pauseOffset = this._masterTime()
+    for (const ch of Object.values(this._channels)) {
+      ch.audio.pause()
+      ch.audio.playbackRate = 1
+    }
     this._playing = false
+    this._stopDriftCorrection()
     this._stopRaf()
   }
 
   seekTo(seconds) {
     const offset = Math.max(0, Math.min(seconds, this._duration))
-    for (const ch of Object.values(this._channels)) ch.audio.currentTime = offset
+    for (const ch of Object.values(this._channels)) {
+      ch.audio.currentTime = offset
+      ch.audio.playbackRate = 1  // a seek invalidates any in-progress drift nudge
+    }
     this._pauseOffset = offset
     if (!this._playing) this._onPositionUpdate?.(offset)
   }
@@ -255,9 +317,11 @@ export class AudioEngine {
     for (const ch of Object.values(this._channels)) {
       ch.audio.pause()
       ch.audio.currentTime = 0
+      ch.audio.playbackRate = 1
     }
     this._playing     = false
     this._pauseOffset = 0
+    this._stopDriftCorrection()
     this._stopRaf()
   }
 
@@ -265,16 +329,93 @@ export class AudioEngine {
   get duration() { return this._duration }
 
   get currentTime() {
-    if (this._playing) {
-      const firstCh = Object.values(this._channels)[0]
-      return firstCh?.audio.currentTime ?? this._pauseOffset
-    }
-    return this._pauseOffset
+    return this._playing ? this._masterTime() : this._pauseOffset
   }
 
   set loop(v) {
     this._looping = v
     for (const ch of Object.values(this._channels)) ch.audio.loop = v
+  }
+
+  // ─── Sync / drift correction (software phase-lock loop) ────────────────────────
+
+  /** Pick the longest-duration loaded stem as the master clock. */
+  _recomputeMaster() {
+    let best = null
+    let bestDuration = -1
+    for (const [name, ch] of Object.entries(this._channels)) {
+      const d = isFinite(ch.audio.duration) ? ch.audio.duration : 0
+      if (d > bestDuration) { bestDuration = d; best = name }
+    }
+    this._masterName = best
+  }
+
+  /** Current transport position, read from the master stem's media clock. */
+  _masterTime() {
+    const master = this._channels[this._masterName]
+    return master ? master.audio.currentTime : this._pauseOffset
+  }
+
+  _startDriftCorrection() {
+    this._stopDriftCorrection()
+    this._correctionTimer = setInterval(() => this._correctDrift(), DRIFT_INTERVAL_MS)
+  }
+
+  _stopDriftCorrection() {
+    if (this._correctionTimer) {
+      clearInterval(this._correctionTimer)
+      this._correctionTimer = null
+    }
+  }
+
+  /**
+   * One pass of the phase-lock loop: pull every slave stem toward the master.
+   *   • |drift| ≤ deadband      → snap rate back to 1.0× (already in sync)
+   *   • deadband < |drift| ≤ hard → proportional playbackRate nudge (pop-free)
+   *   • |drift| > hard          → hard re-seek (stall/background-throttle recovery)
+   */
+  _correctDrift() {
+    if (!this._playing) return
+    const master = this._channels[this._masterName]
+    if (!master) return
+    const masterTime = master.audio.currentTime
+
+    for (const [name, ch] of Object.entries(this._channels)) {
+      if (name === this._masterName) {
+        if (ch.audio.playbackRate !== 1) ch.audio.playbackRate = 1
+        continue
+      }
+      const drift = ch.audio.currentTime - masterTime  // >0: slave ahead of master
+      const absDrift = Math.abs(drift)
+
+      if (absDrift > DRIFT_HARD) {
+        ch.audio.currentTime = masterTime
+        ch.audio.playbackRate = 1
+      } else if (absDrift > DRIFT_DEADBAND) {
+        // Ahead of master → slow down (<1); behind → speed up (>1).
+        let rate = 1 - drift * DRIFT_GAIN
+        rate = Math.max(1 - DRIFT_MAX_RATE, Math.min(1 + DRIFT_MAX_RATE, rate))
+        ch.audio.playbackRate = rate
+      } else if (ch.audio.playbackRate !== 1) {
+        ch.audio.playbackRate = 1
+      }
+    }
+  }
+
+  /**
+   * Diagnostic snapshot of how far each slave is from the master, in ms.
+   * Handy for verifying sync in the console; not used by the UI.
+   */
+  getSyncReport() {
+    const master = this._channels[this._masterName]
+    if (!master) return { master: null, drift: {} }
+    const masterTime = master.audio.currentTime
+    const drift = {}
+    for (const [name, ch] of Object.entries(this._channels)) {
+      if (name === this._masterName) continue
+      drift[name] = Math.round((ch.audio.currentTime - masterTime) * 1000)
+    }
+    return { master: this._masterName, drift }
   }
 
   // ─── Gain / Mute / Solo ──────────────────────────────────────────────────────
