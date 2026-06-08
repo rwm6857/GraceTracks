@@ -73,7 +73,11 @@
       <button id="run" class="primary">Probe &amp; decode all stems</button>
       <button id="play" disabled>▶ Play sample-locked</button>
       <button id="stop" class="danger" disabled>■ Stop</button>
+      <button id="export" disabled>⧉ Copy results JSON</button>
     </div>
+    <textarea id="exportText" readonly style="display:none;width:100%;height:140px;margin-top:10px;
+      background:var(--surface2);color:var(--text);border:1px solid var(--sep);border-radius:10px;
+      padding:10px;font:12px var(--mono)"></textarea>
   </div>
 
   <div class="card" id="envCard">
@@ -130,6 +134,7 @@ $('slug').value = qs.get('slug') || localStorage.getItem('spike.slug') || '';
 let ctx = null;
 let decoded = [];      // { name, buffer (AudioBuffer|null), int16:[Int16Array per ch], length, channels, rate }
 let sources = [];      // active AudioBufferSourceNodes during playback
+let lastResults = null; // structured snapshot for JSON export
 
 function ensureCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -176,15 +181,18 @@ async function run() {
   localStorage.setItem('spike.r2', base);
   localStorage.setItem('spike.slug', slug);
 
-  $('run').disabled = true; $('play').disabled = true; $('stop').disabled = true;
+  $('run').disabled = true; $('play').disabled = true; $('stop').disabled = true; $('export').disabled = true;
+  $('exportText').style.display = 'none';
   $('rows').innerHTML = '';
   $('log').textContent = '';
   decoded = [];
+  const rowsData = [];
 
   const dm = navigator.deviceMemory;
   $('devMem').textContent = dm ? dm + ' GB' : 'unavailable';
   const m = performance.memory;
   $('heapLimit').textContent = m ? fmtMB(m.jsHeapSizeLimit) : 'unavailable (Safari)';
+  const heapBefore = m ? m.usedJSHeapSize : null;
   showMem('heapBefore');
 
   ensureCtx();
@@ -223,6 +231,9 @@ async function run() {
     const int16 = audioBufferToInt16(buffer);
 
     decoded.push({ name: stem, buffer: hold ? buffer : null, int16, length: len, channels: ch, rate: buffer.sampleRate });
+    rowsData.push({ stem, ext: found.ext, downloadBytes: dlBytes, durationSec: +buffer.duration.toFixed(3),
+                    channels: ch, sampleRate: buffer.sampleRate, decodeMs: +decodeMs.toFixed(1),
+                    float32Bytes: floatBytes, int16Bytes: intBytes });
 
     tFloat += floatBytes; tInt += intBytes; tDownload += dlBytes; tDecode += decodeMs; count++;
 
@@ -252,9 +263,30 @@ async function run() {
 
   renderVerdict(tFloat, tInt);
 
+  const mem = performance.memory;
+  lastResults = {
+    schema: 'gracetracks-stem-spike/1',
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    deviceMemoryGB: navigator.deviceMemory ?? null,
+    jsHeap: mem ? { limit: mem.jsHeapSizeLimit, before: heapBefore, after: mem.usedJSHeapSize } : null,
+    base, slug,
+    mode: hold ? 'hold-float32' : 'release-after-int16',
+    contextSampleRate: ctx.sampleRate,
+    stems: rowsData,
+    totals: {
+      count, downloadBytes: tDownload, decodeMs: +tDecode.toFixed(0),
+      float32Bytes: tFloat, int16Bytes: tInt,
+      float32MB: +(tFloat/1048576).toFixed(1), int16MB: +(tInt/1048576).toFixed(1),
+    },
+    survivedFloat32Hold: hold ? true : null, // if this JSON exists in hold mode, the tab survived the peak
+    verdictClass: $('verdict').className.replace('verdict ', ''),
+  };
+
   $('run').disabled = false;
   $('play').disabled = false;
-  log('\nDecode complete. Tap “Play sample-locked” to hear all stems started on one clock.');
+  $('export').disabled = false;
+  log('\nDecode complete. Tap “▶ Play sample-locked” to hear all stems on one clock, then “⧉ Copy results JSON” and paste it back to Claude.');
 }
 
 function renderVerdict(tFloat, tInt) {
@@ -284,35 +316,67 @@ function stopPlayback() {
 async function play() {
   stopPlayback();
   const c = ensureCtx();
-  await c.resume(); // user gesture
-  const when = c.currentTime + 0.15; // one shared start anchor → sample-locked
-  for (const d of decoded) {
-    let buf = d.buffer;
-    if (!buf) {
-      // Rebuild an AudioBuffer from the stored Int16 for playback
-      buf = c.createBuffer(d.channels, d.length, d.rate);
-      for (let ch = 0; ch < d.channels; ch++) {
-        const f = buf.getChannelData(ch);
-        const i16 = d.int16[ch];
-        for (let i = 0; i < i16.length; i++) f[i] = i16[i] / (i16[i] < 0 ? 0x8000 : 0x7FFF);
-      }
+  await c.resume(); // user gesture unlocks iOS audio
+
+  // STEP 1 — do ALL heavy work first (rebuilding buffers from Int16 is expensive).
+  // This must happen BEFORE we compute the start anchor, otherwise the time spent
+  // here eats into the lead and later stems get a 'when' already in the past, which
+  // iOS fires immediately → scattered, "wildly different" starts. (That was the bug.)
+  const t0 = performance.now();
+  const buffers = decoded.map(d => {
+    if (d.buffer) return d.buffer;
+    const buf = c.createBuffer(d.channels, d.length, d.rate);
+    for (let ch = 0; ch < d.channels; ch++) {
+      const f = buf.getChannelData(ch);
+      const i16 = d.int16[ch];
+      for (let i = 0; i < i16.length; i++) f[i] = i16[i] / (i16[i] < 0 ? 0x8000 : 0x7FFF);
     }
+    return buf;
+  });
+  const prepMs = performance.now() - t0;
+
+  // STEP 2 — now schedule every source at ONE shared anchor in a tight, synchronous
+  // loop. createBufferSource()+start() is microseconds, so all stems hit the same
+  // sample. Lead time is generous so even a slow first-start can't miss it.
+  const when = c.currentTime + 0.3;
+  sources = [];
+  for (let i = 0; i < decoded.length; i++) {
+    const d = decoded[i];
     const src = c.createBufferSource();
-    src.buffer = buf;
+    src.buffer = buffers[i];
     const g = c.createGain();
-    // click/ambient silent by default, like the app
-    g.gain.value = (d.name === 'click' || d.name === 'ambient') ? 0 : 0.5;
+    g.gain.value = (d.name === 'click' || d.name === 'ambient') ? 0 : 0.5; // match app default
     src.connect(g); g.connect(c.destination);
     src.start(when, 0);
     sources.push(src);
   }
   $('stop').disabled = false;
-  log(`Playing ${decoded.length} stems, all scheduled at t=${when.toFixed(3)} (single AudioContext clock — zero drift).`);
+  log(`Prepared ${decoded.length} buffers in ${prepMs.toFixed(0)}ms, then scheduled all at t=${when.toFixed(3)} ` +
+      `(single AudioContext clock — sample-locked, zero drift).`);
+}
+
+async function exportResults() {
+  if (!lastResults) return;
+  const json = JSON.stringify(lastResults, null, 2);
+  const ta = $('exportText');
+  ta.style.display = 'block';
+  ta.value = json;
+  // Try the async clipboard API (needs the user gesture + secure context).
+  let copied = false;
+  try { await navigator.clipboard.writeText(json); copied = true; } catch (_) {}
+  // Fallback for iOS Safari where clipboard may be blocked: select for manual copy.
+  if (!copied) {
+    ta.focus(); ta.setSelectionRange(0, json.length);
+    try { copied = document.execCommand('copy'); } catch (_) {}
+  }
+  log(copied ? '\nResults copied to clipboard — paste them back to Claude.'
+             : '\nClipboard blocked — select all text in the box above and copy it manually.');
 }
 
 $('run').addEventListener('click', () => run().catch(e => { log('ERROR: ' + e.message); $('run').disabled = false; }));
 $('play').addEventListener('click', () => play().catch(e => log('PLAY ERROR: ' + e.message)));
 $('stop').addEventListener('click', stopPlayback);
+$('export').addEventListener('click', () => exportResults().catch(e => log('EXPORT ERROR: ' + e.message)));
 </script>
 </body>
 </html>
