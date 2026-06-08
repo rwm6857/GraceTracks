@@ -119,8 +119,10 @@
     <p class="sub" style="margin:4px 0 10px">
       Proves the streaming engine's runtime: plays the decoded stems through an
       <code>AudioWorklet</code> mixer fed in small chunks (only a few seconds buffered ahead),
-      under one clock. Watch <strong>underruns</strong> (glitches) and <strong>peak ring memory</strong>
-      — playback RAM should be tiny vs the Int16 total. Run the decode above first.
+      under one clock. <strong>Underruns = glitches; 0 is the goal</strong> (they only rise if the
+      feeder can't keep up). <strong>Peak ring memory</strong> is the playback RAM — should be tiny
+      vs the Int16 total. Seek jumps to 50% and <em>keeps playing</em> so you can hear post-seek
+      tightness. Run the decode above first.
     </p>
     <div class="row">
       <label for="look" style="margin:0">Lookahead (s)</label>
@@ -129,7 +131,7 @@
     </div>
     <div class="row" style="margin-top:12px">
       <button id="wplay" class="primary" disabled>▶ Play via worklet</button>
-      <button id="wseek" disabled>⇥ Seek test (50% → 0)</button>
+      <button id="wseek" disabled>⇥ Seek to 50% (keep playing)</button>
       <button id="wstop" class="danger" disabled>■ Stop</button>
     </div>
     <div class="totals" style="margin-top:12px">
@@ -174,6 +176,8 @@ let wlPlayhead = 0;       // frames the worklet has rendered (from its messages)
 let wlUnderruns = 0;
 let wlPeakRingBytes = 0;  // peak Float32 PCM held in the worklet's queues (the playback footprint)
 let wlPosTimer = null;    // UI position updater
+let wlPump = null;        // the feeder function (hoisted so seek can refill synchronously)
+let wlSeekInfo = null;    // last seek landing, for the export
 let streamingResults = null;
 
 function ensureCtx() {
@@ -539,6 +543,7 @@ function startPump(c) {
       }
     }
   };
+  wlPump = pump;
   pump();
   pumpTimer = setInterval(pump, 50);
 }
@@ -553,7 +558,7 @@ async function workletPlay() {
 
   wlReadSample = decoded.map(() => 0);
   wlQueuedSample = decoded.map(() => 0);
-  wlPlayhead = 0; wlUnderruns = 0; wlPeakRingBytes = 0;
+  wlPlayhead = 0; wlUnderruns = 0; wlPeakRingBytes = 0; wlSeekInfo = null;
 
   wlNode = new AudioWorkletNode(c, 'stem-mixer', { outputChannelCount: [2] });
   wlNode.connect(c.destination);
@@ -562,6 +567,7 @@ async function workletPlay() {
     if (m.type === 'status') {
       wlPlayhead = m.frames; wlUnderruns = m.underruns;
       wlPeakRingBytes = Math.max(wlPeakRingBytes, m.queued * 8); // each queued sample = 2ch × 4B
+      captureStreaming(c.sampleRate, wlPeakRingBytes); // keep export data fresh even mid-play
     }
   };
   wlNode.port.postMessage({ type: 'config', n: decoded.length, gain: decoded.map(d => gainFor(d.name)) });
@@ -586,20 +592,23 @@ async function workletPlay() {
 
 function workletSeek() {
   if (!wlNode) return;
-  const c = ctx, rate = c.sampleRate;
-  const target = Math.round(decoded[0].length * 0.5); // jump to 50%
+  const rate = ctx.sampleRate;
+  const target = Math.round(decoded[0].length * 0.5); // jump to 50% and KEEP PLAYING
   doWorkletSeek(target, rate);
-  log(`Seek → 50% (${(target/rate).toFixed(1)}s). After ~1s it returns to 0 to confirm re-lock.`);
-  setTimeout(() => doWorkletSeek(0, rate), 1200);
+  wlSeekInfo = { targetSec: +(target / rate).toFixed(1), kepPlaying: true };
+  log(`\nSeek → 50% (${(target/rate).toFixed(1)}s) — now playing on from there. Listen that it stays tight; ` +
+      `it should NOT snap back to 0 anymore. Underruns should stay flat.`);
 }
 
+// Re-anchor every stem to targetSample, refill synchronously, and resume — all via
+// ordered port messages (pause → flush → data… → play), so there is no gap or stall.
 function doWorkletSeek(targetSample, rate) {
   wlNode.port.postMessage({ type: 'pause' });
   wlNode.port.postMessage({ type: 'flush', frames: targetSample });
   for (let s = 0; s < decoded.length; s++) { wlReadSample[s] = targetSample; wlQueuedSample[s] = targetSample; }
   wlPlayhead = targetSample;
-  // pump refills synchronously on next tick; resume right after a brief prime
-  setTimeout(() => { if (wlNode) wlNode.port.postMessage({ type: 'play' }); }, 80);
+  if (wlPump) wlPump();                       // refill the lookahead right now (PCM is in memory)
+  wlNode.port.postMessage({ type: 'play' });  // ordered after the data → no underrun on resume
 }
 
 function captureStreaming(rate, ringBytes) {
@@ -613,19 +622,25 @@ function captureStreaming(rate, ringBytes) {
     peakRingBytes: ringBytes,
     peakRingMB: +(ringBytes / 1048576).toFixed(2),
     contextSampleRate: rate,
+    seek: wlSeekInfo,
   };
 }
 
 function stopWorklet(silent) {
   if (pumpTimer) { clearInterval(pumpTimer); pumpTimer = null; }
   if (wlPosTimer) { clearInterval(wlPosTimer); wlPosTimer = null; }
+  if (ctx && wlNode) captureStreaming(ctx.sampleRate, wlPeakRingBytes); // final snapshot for export
   if (wlNode) {
     try { wlNode.port.postMessage({ type: 'pause' }); } catch (_) {}
     try { wlNode.disconnect(); } catch (_) {}
     wlNode = null;
   }
+  wlPump = null;
   $('wplay').disabled = !decoded.length; $('wstop').disabled = true;
-  if (!silent) { $('sWL').textContent = 'stopped'; log('\nWorklet test stopped.'); }
+  if (!silent) {
+    $('sWL').textContent = 'stopped';
+    log(`\nWorklet test stopped. Recorded: ${wlUnderruns} underruns, peak ring ${fmtMB(wlPeakRingBytes)} — in “⧉ Copy results JSON”.`);
+  }
 }
 
 $('run').addEventListener('click', () => run().catch(e => { log('ERROR: ' + e.message); $('run').disabled = false; }));
