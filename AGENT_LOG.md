@@ -189,6 +189,47 @@ AudioWorklet engine (Option B) and added an on-device streaming test to the spik
 
 ---
 
+### 2026-06-08 — Streaming engine (Option B) — production build, gated
+
+**Agent**: Claude
+**Branch**: `claude/nifty-shannon-lWyhl`
+**Status**: In Progress (built + build-verified; awaiting on-device runtime validation)
+
+**Summary**:
+After M0 passed on-device (worklet sample-locked, 0 underruns, 12.3 MB ring, WebCodecs
+AAC supported), built the production streaming engine. It is gated behind `?engine=stream`
+so production behaviour is unchanged (phase-lock stays the default) until validated on a
+real device.
+
+**Changes**:
+- `src/audio/stream/pcmPlayerProcessor.js` — `pcm-player` AudioWorkletProcessor: one per
+  stem, content-locked via absolute sample positions (self-heals on underrun). All players
+  share the AudioContext render-quantum clock → sample-locked to each other.
+- `src/audio/stream/demux.js` — mp4box (2.3.0) MP4 demux → AAC `EncodedAudioChunk`s + the
+  `AudioSpecificConfig` (WebCodecs `description`) + per-chunk absolute sample positions;
+  plus a lazy WAV PCM reader fallback.
+- `src/audio/stream/streamEngine.js` — orchestrator: per-stem `pcm-player → gain → analyser
+  → master` graph (so existing fader/mute/solo/meter code is unchanged); WebCodecs decode-
+  ahead scheduler that only decodes ~4 s past the playhead (resident PCM ~tens of MB);
+  clock-based transport (play/pause/seek/loop/count-in). Implements the exact public API of
+  `engine.js`. Worklet loaded via a Blob URL (`?raw` import) — the iOS-proven path.
+- `src/audio/engineFactory.js` — capability detection + `?engine=stream|phase` override;
+  dynamic-imports the streaming engine so mp4box (~195 KB) is code-split out of the default path.
+- `src/ui/mixer.js` — construct the engine via `createEngine()` instead of `new AudioEngine()`.
+- `package.json` — added `mp4box` dependency.
+
+**Build/verify**: `npm run build` clean (streaming engine code-split to its own chunk);
+`npm test` 21/21. Runtime path (mp4box demux/ASC extraction, WebCodecs decode, seek) is
+NOT yet validated in a browser — to be confirmed on-device via `?engine=stream`.
+
+**Key Decisions**:
+- Per-stem player worklets (not one mixer worklet) to preserve the Gain/Analyser graph and
+  thus all existing fader/mute/solo/metering code.
+- Default stays phase-lock; streaming is opt-in until on-device validation, then flip
+  `_defaultToStreaming()` in the factory to capability detection.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

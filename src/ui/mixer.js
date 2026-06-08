@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase.js'
-import { AudioEngine, STEMS } from '../audio/engine.js'
+import { STEMS } from '../audio/engine.js'
+import { createEngine } from '../audio/engineFactory.js'
 import { resolveStemUrl } from '../audio/stems.js'
 import { Metronome } from '../audio/metronome.js'
 import { Meters } from '../audio/meters.js'
@@ -65,8 +66,8 @@ export async function renderMixer(container, slug) {
   const stemSlug = song.stem_slug || song.slug
   const r2Base = import.meta.env.VITE_R2_PUBLIC_URL
 
-  // — Engine setup
-  const engine = new AudioEngine()
+  // — Engine setup (phase-lock by default; ?engine=stream opts into the streaming engine)
+  const engine = await createEngine()
 
   // — Probe + load stems
   let stemsCompleted = 0
