@@ -39,6 +39,7 @@ let _currentUser  = null
 async function render() {
   const route = getRoute()
   const key = route.view === 'mixer' ? `mixer:${route.slug}` : route.view
+  _navbar?.setActive(window.location.pathname)
   if (key === currentView) return
   currentView = key
 

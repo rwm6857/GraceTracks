@@ -1324,9 +1324,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: var(--gc-surface-2);
+  padding: 2px;
+  background: transparent;
   color: var(--gc-text);
   cursor: pointer;
   border-radius: 50%;
@@ -1335,6 +1334,20 @@
 }
 .gc-user-avatar-btn:hover,
 .gc-user-avatar-btn[aria-expanded="true"] { border-color: var(--gc-primary); }
+
+/* Shared GraceChords user sprite (public/sprites/<id>.webp) */
+.gc-sprite-avatar {
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: block;
+}
+.gc-sprite-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 .gc-user-dropdown {
   position: absolute;
