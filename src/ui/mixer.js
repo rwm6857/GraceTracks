@@ -5,6 +5,7 @@ import { resolveStemUrl } from '../audio/stems.js'
 import { Metronome } from '../audio/metronome.js'
 import { Meters } from '../audio/meters.js'
 import { createTransport } from './transport.js'
+import { icon } from './icons.js'
 
 const CHANNEL_COLORS = {
   drums:   '#ef4444',
@@ -193,7 +194,7 @@ export async function renderMixer(container, slug) {
         class="gc-btn gc-btn--ghost gc-btn--sm gt-mixer-header__gracechords-link"
       >View on GraceChords ↗</a>
       <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm gt-back-link" aria-label="Back to songs">
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        ${icon('chevron-left')}
         <span class="gt-back-link__text">Songs</span>
       </a>
     </div>

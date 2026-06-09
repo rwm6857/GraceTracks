@@ -15,6 +15,8 @@
  * @param {function} opts.onCountInEnd
  * @param {function} opts.onMetersToggle - called with boolean (active)
  */
+import { icon } from './icons.js'
+
 export function createTransport({
   engine, metronome, meters, song,
   onPlay, onPause, onCountInBeat, onCountInEnd, onMetersToggle
@@ -44,10 +46,11 @@ export function createTransport({
     </div>
 
     <div class="gt-transport__group gt-transport__group--play">
+      <button class="gt-transport__stop gc-btn" aria-label="Rewind to start" data-action="stop">
+        ${icon('rewind', { className: 'gt-icon gt-transport__stop-icon' })}
+      </button>
       <button class="gt-transport__play gc-btn gc-btn--primary" aria-label="Play" data-action="play">
-        <svg class="gt-icon gt-transport__play-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
+        ${icon('play', { className: 'gt-icon gt-transport__play-icon' })}
       </button>
     </div>
 
@@ -87,9 +90,7 @@ export function createTransport({
         title="Click volume down"
         aria-label="Click volume down"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5zm7-.17v6.34L9.83 13H7v-2h2.83L12 8.83z"/>
-        </svg>
+        ${icon('volume-down')}
       </button>
       <button
         class="gt-transport__toggle gc-btn gc-btn--sm"
@@ -97,9 +98,7 @@ export function createTransport({
         title="Click volume up"
         aria-label="Click volume up"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-        </svg>
+        ${icon('volume-up')}
       </button>
       ` : ''}
       ${hasAmbient ? `
@@ -109,9 +108,7 @@ export function createTransport({
         aria-pressed="false"
         title="Ambient"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2">
-          <path d="M2 12c2-4 4-4 6 0s4 4 6 0s4-4 6 0"/>
-        </svg>
+        ${icon('ambient')}
       </button>
       ` : ''}
       <button
@@ -120,14 +117,13 @@ export function createTransport({
         aria-pressed="false"
         title="Show meters"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 18h4v-6H3v6zm0-8h4V4H3v6zm6 8h4V4H9v14zm6 0h4v-4h-4v4zm0-6h4v-2h-4v2z"/>
-        </svg>
+        ${icon('meters')}
       </button>
     </div>
   `
 
-  const playBtn      = el.querySelector('[data-action="play"]')
+  const playBtn      = el.querySelector('.gt-transport__play')
+  const stopBtn      = el.querySelector('.gt-transport__stop')
   const posEl        = el.querySelector('.gt-transport__position')
   const durationEl   = el.querySelector('.gt-transport__duration')
   const seekEl       = el.querySelector('.gt-transport__seek')
@@ -217,10 +213,13 @@ export function createTransport({
 
   function setPlayState(playing) {
     playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play')
-    playBtn.querySelector('svg').innerHTML = playing
-      ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
-      : '<path d="M8 5v14l11-7z"/>'
+    playBtn.innerHTML = icon(playing ? 'pause' : 'play', { className: 'gt-icon gt-transport__play-icon' })
     playBtn.dataset.action = playing ? 'pause' : 'play'
+
+    // Second button: Stop (pause + reset to start) while playing,
+    // Rewind (reset to start only) while stopped.
+    stopBtn.setAttribute('aria-label', playing ? 'Stop' : 'Rewind to start')
+    stopBtn.innerHTML = icon(playing ? 'stop' : 'rewind', { className: 'gt-icon gt-transport__stop-icon' })
   }
 
   // Position updates from engine RAF
@@ -272,6 +271,21 @@ export function createTransport({
       metronome.stop()
       setPlayState(false)
       onPause?.()
+    } else if (action === 'stop') {
+      // Acts as Stop while playing (halt + reset to start) and as Rewind while
+      // stopped (reset to start only). Either way the playhead returns to 0.
+      const wasPlaying = playBtn.dataset.action === 'pause'
+      const wasCountingIn = playBtn.disabled
+      engine.pause()
+      metronome.stop()
+      playBtn.disabled = false
+      if (wasCountingIn) onCountInEnd?.()
+      if (wasPlaying) onPause?.()
+      setPlayState(false)
+      engine.seekTo(0)
+      seekEl.value = 0
+      updateSeekFill(0)
+      posEl.textContent = formatTime(0)
     } else if (action === 'countin') {
       countInEnabled = !countInEnabled
       countInBtn.setAttribute('aria-pressed', String(countInEnabled))

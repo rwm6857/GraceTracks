@@ -14,6 +14,35 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — Lucide icons + Stop/Rewind transport button
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/sharp-albattani-l44ptt`
+**Status**: Completed
+
+**Summary**: Migrated the hand-rolled inline SVG icons to Lucide (matching GraceChords'
+icon system) and added a second transport button that acts as Stop while playing (halt +
+reset to start) and Rewind while stopped (reset to start only).
+
+**Changes**:
+- Added `lucide` dependency. New `src/ui/icons.js` helper imports only the icons we use
+  (tree-shaken) and renders them to SVG-string markup so they drop into the existing
+  innerHTML template literals — no framework, no runtime DOM scanning.
+- `src/ui/transport.js`: play/pause, ambient (→ Waves), meters (→ AudioLines), click
+  volume down/up (→ Volume1/Volume2) now use Lucide. Added Stop/Rewind button
+  (`data-action="stop"`) left of play; `setPlayState` swaps its icon (Square ↔ SkipBack)
+  and label with play state. Play button now selected by class (data-action toggles).
+- `src/ui/mixer.js`: back-link arrow → Lucide ChevronLeft.
+- `src/ui/uploadSong.js`: stem remove "✕" → Lucide X.
+- `src/styles/components.css`: `.gt-transport__stop` (secondary surface fill) + icon size.
+- Kept bespoke (no suitable Lucide equivalent): count-in "1234" block, metronome glyph,
+  per-stem channel artwork in `public/icons/channels/`. Volume down/up use level icons
+  (Volume1/Volume2) as the closest approximation to decrement/increment.
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21.
+
+---
+
 ## Entries
 
 ### 2026-03-30 — Schema Documentation & Agent Logging Setup
