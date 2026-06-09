@@ -13,4 +13,4 @@ compatibility_date = "2024-09-23"
 # generate presigned URLs, so the binding is available for future proxy-upload use.
 [[r2_buckets]]
 binding = "STEMS_BUCKET"
-bucket_name = "gracetracks-stems"
+bucket_name = "gracechords-bible"
