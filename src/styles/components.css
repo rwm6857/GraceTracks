@@ -109,6 +109,21 @@
   height: 20px;
 }
 
+/* Stop / Rewind button: secondary surface fill, sits beside the play button */
+.gt-transport__stop.gc-btn {
+  background: var(--gc-surface-2);
+  color: var(--gc-text-secondary);
+  border: 1px solid var(--gc-separator);
+}
+.gt-transport__stop.gc-btn:hover {
+  background: var(--gc-surface-3);
+  color: var(--gc-text);
+}
+.gt-transport__stop-icon {
+  width: 20px;
+  height: 20px;
+}
+
 /* Count-in icon: Logic Pro–style "1234" block with downward caret */
 .gt-transport__countin-icon {
   display: inline-flex;

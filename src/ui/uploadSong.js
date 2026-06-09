@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase.js'
 import { getSession, isEditorPlus } from '../lib/auth.js'
+import { icon } from './icons.js'
 
 const TRACKS = [
   { id: 'drums',   label: 'Drums' },
@@ -176,7 +177,7 @@ export async function renderUploadSong(container, user) {
           ${escHtml(state.file.name)}
         </span>
         <span class="gt-upload__stem-size">${formatBytes(state.file.size)}</span>
-        <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__stem-remove" aria-label="Remove ${track.label} file">✕</button>
+        <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__stem-remove" aria-label="Remove ${track.label} file">${icon('close')}</button>
       `
     } else if (state.status === 'uploading') {
       bodyHtml = `
