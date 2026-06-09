@@ -57,27 +57,71 @@ export class StreamAudioEngine {
     try { this._diagEnabled = /[?&](engine=stream|debug)/.test(location.search) } catch { this._diagEnabled = false }
   }
 
-  /** Append a line to an on-screen diagnostic panel (and the console). */
+  /** Record a diagnostic line; show a small, collapsed, copyable panel on-screen. */
   _diag(msg) {
     try { console.info('[stream]', msg) } catch {}
+    if (!this._diagLines) this._diagLines = []
+    this._diagLines.push(msg)
     if (!this._diagEnabled || typeof document === 'undefined') return
-    if (!this._diagEl) {
-      const el = document.createElement('div')
-      el.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;max-height:40vh;overflow:auto;' +
-        'z-index:99999;background:rgba(16,14,11,.92);color:#f0ebe3;font:11px ui-monospace,monospace;' +
-        'padding:8px 10px;border:1px solid #2e261e;border-radius:10px;white-space:pre-wrap'
-      const close = document.createElement('button')
-      close.textContent = '×'
-      close.style.cssText = 'position:sticky;top:0;float:right;background:none;border:none;color:#a89484;font-size:16px;cursor:pointer'
-      close.onclick = () => { el.remove(); this._diagEl = null }
-      el.appendChild(close)
-      document.body.appendChild(el)
-      this._diagEl = el
+    this._ensureDiagUI()
+    this._diagCount.textContent = String(this._diagLines.length)
+    if (this._diagBody && this._diagExpanded) {
+      this._diagBody.textContent = this._diagLines.join('\n')
+      this._diagBody.scrollTop = this._diagBody.scrollHeight
     }
-    const line = document.createElement('div')
-    line.textContent = msg
-    this._diagEl.appendChild(line)
-    this._diagEl.scrollTop = this._diagEl.scrollHeight
+  }
+
+  _ensureDiagUI() {
+    if (this._diagWrap) return
+    const wrap = document.createElement('div')
+    wrap.style.cssText = 'position:fixed;top:6px;right:6px;z-index:99999;font:11px ui-monospace,monospace;' +
+      'background:rgba(16,14,11,.92);color:#f0ebe3;border:1px solid #2e261e;border-radius:8px;max-width:92vw'
+    const bar = document.createElement('div')
+    bar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 6px'
+    const toggle = document.createElement('button')
+    toggle.style.cssText = 'background:none;border:none;color:#d4843a;font:inherit;cursor:pointer;padding:2px 4px'
+    const count = document.createElement('span')
+    count.textContent = '0'
+    const setLabel = () => { toggle.textContent = `${this._diagExpanded ? '▾' : '▸'} stream log` }
+    const copy = document.createElement('button')
+    copy.textContent = 'Copy'
+    copy.style.cssText = 'background:#231e18;border:1px solid #2e261e;color:#f0ebe3;font:inherit;border-radius:6px;padding:3px 8px;cursor:pointer'
+    const hide = document.createElement('button')
+    hide.textContent = '×'
+    hide.style.cssText = 'background:none;border:none;color:#a89484;font-size:14px;cursor:pointer;padding:0 4px'
+    const body = document.createElement('div')
+    body.style.cssText = 'display:none;max-height:38vh;max-width:92vw;overflow:auto;white-space:pre-wrap;padding:6px 8px;border-top:1px solid #2e261e'
+
+    this._diagExpanded = false
+    setLabel()
+    toggle.onclick = () => {
+      this._diagExpanded = !this._diagExpanded
+      setLabel()
+      body.style.display = this._diagExpanded ? 'block' : 'none'
+      if (this._diagExpanded) { body.textContent = this._diagLines.join('\n'); body.scrollTop = body.scrollHeight }
+    }
+    copy.onclick = async () => {
+      const text = this._diagLines.join('\n')
+      let ok = false
+      try { await navigator.clipboard.writeText(text); ok = true } catch {}
+      if (!ok) {
+        const ta = document.createElement('textarea')
+        ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px'
+        document.body.appendChild(ta); ta.focus(); ta.select()
+        try { ok = document.execCommand('copy') } catch {}
+        ta.remove()
+      }
+      copy.textContent = ok ? 'Copied!' : 'Copy failed'
+      setTimeout(() => { copy.textContent = 'Copy' }, 1500)
+    }
+    hide.onclick = () => { wrap.remove(); this._diagWrap = null }
+
+    bar.append(toggle, count, copy, hide)
+    wrap.append(bar, body)
+    document.body.appendChild(wrap)
+    this._diagWrap = wrap
+    this._diagBody = body
+    this._diagCount = count
   }
 
   get context() { return this._ctx }
