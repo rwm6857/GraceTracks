@@ -33,7 +33,6 @@ import {
   LogOut,
   ChevronRight,
   User,
-  Headset,
 } from 'lucide'
 
 // X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
@@ -46,6 +45,7 @@ import keysSvg from '../assets/channels/keys.svg?raw'
 import synthSvg from '../assets/channels/synth.svg?raw'
 import voxSvg from '../assets/channels/vox.svg?raw'
 import stringsSvg from '../assets/channels/strings.svg?raw'
+import mdSvg from '../assets/channels/md.svg?raw'
 
 const ICONS = {
   play: Play,
@@ -80,16 +80,14 @@ const X32_ICONS = {
   synth: synthSvg,
   vox: voxSvg,
   strings: stringsSvg,
+  md: mdSvg,
 }
 
-/** Lucide fallbacks for channels with no X32 icon (transport-only stems + master).
- *  `md` (Music Director / talkback) is a temporary Headset until md.bmp is traced
- *  into src/assets/channels/md.svg (then move it into X32_ICONS above). */
+/** Lucide fallbacks for channels with no X32 icon (transport-only stems + master). */
 const CHANNEL_ICONS = {
   click: Metronome,
   ambient: Waves,
   master: Speaker,
-  md: Headset,
 }
 
 function renderSvg(node, className, color) {

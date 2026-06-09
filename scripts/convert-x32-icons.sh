@@ -23,6 +23,7 @@ mkdir -p "$OUT_DIR"
 declare -A MAP=(
   [drums]=drums [percussion]=perc [bass]=bass [elec]=elec
   [keys]=keys [synth]=synth [vocals]=vox [strings]=strings
+  [md]=md
 )
 
 for src in "${!MAP[@]}"; do
