@@ -77,6 +77,7 @@ export class AudioEngine {
     this._masterName      = null  // channel whose currentTime is the transport clock
     this._onPositionUpdate = null
     this._onEnded          = null
+    this._onInterrupted    = null
     this._playGeneration   = 0  // incremented on every play/pause/stop to cancel in-flight seeks
   }
 
@@ -87,6 +88,7 @@ export class AudioEngine {
       this._ctx = new AudioContext()
       this._masterGain = this._ctx.createGain()
       this._masterGain.connect(this._ctx.destination)
+      this._ctx.onstatechange = () => this._handleStateChange()
     }
   }
 
@@ -98,8 +100,36 @@ export class AudioEngine {
    * iOS Safari allows subsequent audio.play() calls (even from setTimeout).
    */
   resumeIfSuspended() {
-    if (this._ctx?.state === 'suspended') return this._ctx.resume()
+    // iOS Safari uses a non-standard 'interrupted' state (not 'suspended') when
+    // the screen locks or the app is backgrounded — resume from both.
+    const st = this._ctx?.state
+    if (st === 'suspended' || st === 'interrupted') return this._ctx.resume()
     return Promise.resolve()
+  }
+
+  /**
+   * iOS Safari suspends/interrupts the AudioContext when the screen locks or the
+   * tab is backgrounded. The <audio> elements stop, but `_playing` would otherwise
+   * stay true — which makes a subsequent play() a no-op (it early-returns while
+   * playing), leaving a dead transport until a full reload. Treat any
+   * suspend/interrupt during playback as a clean self-pause: capture the playhead
+   * so the next play() resumes from the same spot, and notify the UI so the
+   * transport flips back to "Play".
+   */
+  _handleStateChange() {
+    const st = this._ctx?.state
+    if ((st === 'suspended' || st === 'interrupted') && this._playing) {
+      this._pauseOffset = this._masterTime()
+      this._playGeneration++
+      for (const ch of Object.values(this._channels)) {
+        ch.audio.pause()
+        ch.audio.playbackRate = 1
+      }
+      this._playing = false
+      this._stopDriftCorrection()
+      this._stopRaf()
+      this._onInterrupted?.()
+    }
   }
 
   // ─── Loading ─────────────────────────────────────────────────────────────────
@@ -184,7 +214,7 @@ export class AudioEngine {
       ch.audio.src = ''
       URL.revokeObjectURL(ch.blobUrl)
     }
-    if (this._ctx) { this._ctx.close(); this._ctx = null }
+    if (this._ctx) { this._ctx.onstatechange = null; this._ctx.close(); this._ctx = null }
     this._channels    = {}
     this._duration    = 0
     this._pauseOffset = 0
@@ -500,4 +530,5 @@ export class AudioEngine {
 
   set onPositionUpdate(fn) { this._onPositionUpdate = fn }
   set onEnded(fn)          { this._onEnded = fn }
+  set onInterrupted(fn)    { this._onInterrupted = fn }
 }

@@ -297,6 +297,89 @@ describe('AudioEngine.stop()', () => {
 
 })
 
+describe('AudioEngine — AudioContext interruption recovery (iOS screen-lock)', () => {
+
+  /** Wire one playing channel and mark the engine as playing, master = drums. */
+  function setupPlaying(position = 0) {
+    const audio = makeFakeAudio(position)
+    audio._currentTime = position
+    injectChannel(engine, 'drums', audio)
+    engine._masterName = 'drums'
+    engine._playing = true
+    return audio
+  }
+
+  it('10a. suspended context during playback self-pauses and captures the playhead', () => {
+    const audio = setupPlaying(73.2)
+    engine._ctx.state = 'suspended'
+
+    engine._handleStateChange()
+
+    expect(engine._playing).toBe(false)
+    expect(engine._pauseOffset).toBe(73.2)   // resumable from where it stopped
+    expect(audio.pause).toHaveBeenCalled()
+    expect(audio.playbackRate).toBe(1)
+  })
+
+  it('10b. iOS non-standard "interrupted" state is treated the same as suspended', () => {
+    const audio = setupPlaying(12)
+    engine._ctx.state = 'interrupted'
+
+    engine._handleStateChange()
+
+    expect(engine._playing).toBe(false)
+    expect(engine._pauseOffset).toBe(12)
+    expect(audio.pause).toHaveBeenCalled()
+  })
+
+  it('10c. fires onInterrupted so the UI can flip the transport back to "Play"', () => {
+    setupPlaying(5)
+    engine._ctx.state = 'interrupted'
+    const onInterrupted = vi.fn()
+    engine.onInterrupted = onInterrupted
+
+    engine._handleStateChange()
+
+    expect(onInterrupted).toHaveBeenCalledTimes(1)
+  })
+
+  it('10d. a state change while already paused is a no-op (no spurious callback)', () => {
+    const audio = setupPlaying(5)
+    engine._playing = false   // already paused by the user
+    engine._ctx.state = 'suspended'
+    const onInterrupted = vi.fn()
+    engine.onInterrupted = onInterrupted
+
+    engine._handleStateChange()
+
+    expect(onInterrupted).not.toHaveBeenCalled()
+    expect(audio.pause).not.toHaveBeenCalled()
+  })
+
+  it('10e. returning to "running" does not pause playback', () => {
+    const audio = setupPlaying(5)
+    engine._ctx.state = 'running'
+
+    engine._handleStateChange()
+
+    expect(engine._playing).toBe(true)
+    expect(audio.pause).not.toHaveBeenCalled()
+  })
+
+  it('10f. resumeIfSuspended() resumes from the iOS "interrupted" state', () => {
+    engine._ctx.state = 'interrupted'
+    engine.resumeIfSuspended()
+    expect(engine._ctx.resume).toHaveBeenCalled()
+  })
+
+  it('10g. resumeIfSuspended() is a no-op when the context is already running', () => {
+    engine._ctx.state = 'running'
+    engine.resumeIfSuspended()
+    expect(engine._ctx.resume).not.toHaveBeenCalled()
+  })
+
+})
+
 describe('AudioEngine drift correction (phase-lock loop)', () => {
 
   /** Wire two channels and mark the engine as playing, master = drums. */

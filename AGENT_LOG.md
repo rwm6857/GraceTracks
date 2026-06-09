@@ -2,6 +2,35 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-09 — Fix dead transport after iOS screen-lock (AudioContext interruption recovery)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/tender-volta-4u2cqz`
+**Status**: Completed
+
+**Summary**: On iPhone, locking the screen and returning to the open tab left playback dead —
+the user had to reload the tracks to play again. Root cause: when iOS locks the screen it
+suspends or (Safari-specifically) *interrupts* the AudioContext, but nothing told the engine,
+so `_playing` stayed `true`. `play()` early-returns while `_playing`, so even tapping play /
+MediaSession did nothing; the transport still showed "Pause"; and `resumeIfSuspended()` only
+handled the standard `'suspended'` state, never iOS's `'interrupted'`. For the streaming engine
+the WebCodecs decoders were also torn down while backgrounded.
+
+**Changes**:
+- `src/audio/stream/streamEngine.js` + `src/audio/engine.js`: wire `AudioContext.onstatechange`
+  in `_ensureContext`; new `_handleStateChange()` treats a `suspended`/`interrupted` transition
+  during playback as a clean self-pause — captures the playhead into `_pauseOffset`, pauses the
+  worklets / `<audio>` elements, stops timers, and fires a new `onInterrupted` callback.
+  `resumeIfSuspended()` now resumes from `'interrupted'` too; `onstatechange` cleared on dispose.
+- `src/ui/transport.js`: wire `engine.onInterrupted` to flip the play button back to "Play"
+  (and clear count-in state) so a single tap resumes from where it stopped; cleared in `destroy()`.
+- `src/ui/mixer.js`: `.catch(() => {})` on `resumeIfSuspended()` calls (iOS may reject an
+  interrupted-context resume outside a user gesture).
+- `src/audio/engine.test.js`: 7 new tests covering suspend/interrupt self-pause, playhead
+  capture, `onInterrupted` firing, paused/running no-ops, and `resumeIfSuspended()` state matrix.
+
+**Build/verify**: `npm test` 28/28; `npm run build` clean.
+
 ### 2026-06-09 — Fix upload presign 401 (resilient Supabase env resolution)
 
 **Agent**: Claude (claude-opus-4-8)

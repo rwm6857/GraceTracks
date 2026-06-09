@@ -232,6 +232,17 @@ export function createTransport({
     updateSeekFill(0)
     posEl.textContent = formatTime(0)
   }
+  // iOS Safari interrupts the AudioContext on screen-lock / backgrounding; the
+  // engine self-pauses (preserving its position) and fires this so the transport
+  // reflects the real, paused state. The user then taps Play once to resume from
+  // where it stopped — no reload needed.
+  engine.onInterrupted = () => {
+    metronome.stop()
+    playBtn.disabled = false
+    onCountInEnd?.()
+    setPlayState(false)
+    onPause?.()
+  }
 
   // — Play / Pause
   el.addEventListener('click', async (e) => {
@@ -325,6 +336,7 @@ export function createTransport({
   function destroy() {
     engine.onPositionUpdate = null
     engine.onEnded = null
+    engine.onInterrupted = null
     document.removeEventListener('keydown', handleKeydown)
     document.removeEventListener('pointerup', endSeek)
     document.removeEventListener('pointercancel', cancelSeek)
