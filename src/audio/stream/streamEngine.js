@@ -51,6 +51,7 @@ export class StreamAudioEngine {
     this._endedFired = false
     this._onPositionUpdate = null
     this._onEnded = null
+    this._onInterrupted = null
     this._playGeneration = 0
     // On-screen diagnostics (no console needed on iOS). Hidden unless ?debug is set.
     this._diagEl = null
@@ -146,6 +147,7 @@ export class StreamAudioEngine {
       this._sampleRate = this._ctx.sampleRate
       this._masterGain = this._ctx.createGain()
       this._masterGain.connect(this._ctx.destination)
+      this._ctx.onstatechange = () => this._handleStateChange()
     }
   }
 
@@ -159,8 +161,37 @@ export class StreamAudioEngine {
   }
 
   resumeIfSuspended() {
-    if (this._ctx?.state === 'suspended') return this._ctx.resume()
+    // iOS Safari uses a non-standard 'interrupted' state (not 'suspended') when
+    // the screen locks or the app is backgrounded — resume from both.
+    const st = this._ctx?.state
+    if (st === 'suspended' || st === 'interrupted') return this._ctx.resume()
     return Promise.resolve()
+  }
+
+  /**
+   * iOS Safari suspends/interrupts the AudioContext when the screen locks or the
+   * tab is backgrounded. The worklet stops rendering, but `_playing` would
+   * otherwise stay true — which makes a subsequent play() a no-op (it
+   * early-returns while playing) and the WebCodecs decoders may be torn down,
+   * stranding the user with a dead transport until a full reload. Treat any
+   * suspend/interrupt during playback as a clean self-pause: capture the playhead
+   * so the next play() resumes from the same spot (its re-seek re-configures the
+   * decoders) and notify the UI so the transport flips back to "Play".
+   */
+  _handleStateChange() {
+    const st = this._ctx?.state
+    if ((st === 'suspended' || st === 'interrupted') && this._playing) {
+      this._pauseOffset = this._playheadSec()
+      this._playGeneration++
+      for (const ch of this._order.map(n => this._channels[n])) {
+        try { ch.player.port.postMessage({ type: 'pause' }) } catch {}
+      }
+      this._playing = false
+      this._stopScheduler()
+      this._stopRaf()
+      this._diag(`interrupted @${this._pauseOffset.toFixed(1)}s — paused (ctx ${st})`)
+      this._onInterrupted?.()
+    }
   }
 
   // ─── Loading ───────────────────────────────────────────────────────────────
@@ -503,6 +534,7 @@ export class StreamAudioEngine {
 
   set onPositionUpdate(fn) { this._onPositionUpdate = fn }
   set onEnded(fn) { this._onEnded = fn }
+  set onInterrupted(fn) { this._onInterrupted = fn }
 
   dispose() {
     this._playGeneration++
@@ -512,7 +544,7 @@ export class StreamAudioEngine {
       try { ch.player.port.postMessage({ type: 'pause' }); ch.player.disconnect() } catch {}
       if (ch.kind === 'aac') { try { ch.decoder.close() } catch {} }
     }
-    if (this._ctx) { try { this._ctx.close() } catch {} ; this._ctx = null }
+    if (this._ctx) { try { this._ctx.onstatechange = null; this._ctx.close() } catch {} ; this._ctx = null }
     this._channels = {}
     this._order = []
     this._duration = 0

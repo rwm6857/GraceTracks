@@ -145,7 +145,7 @@ export async function renderMixer(container, slug) {
       ],
     })
     navigator.mediaSession.setActionHandler('play', () => {
-      engine.resumeIfSuspended().then(() => engine.play(engine.currentTime))
+      engine.resumeIfSuspended().then(() => engine.play(engine.currentTime)).catch(() => {})
       navigator.mediaSession.playbackState = 'playing'
     })
     navigator.mediaSession.setActionHandler('pause', () => {
@@ -165,14 +165,18 @@ export async function renderMixer(container, slug) {
 
   // — Resume AudioContext when tab returns to foreground (visibilitychange) or
   //   when iOS Safari restores the page from bfcache (pageshow persisted=true).
+  // resumeIfSuspended() may reject when iOS refuses to resume an interrupted
+  // context outside a user gesture — swallow it. The engine self-pauses on
+  // interruption (see _handleStateChange), so the transport already shows "Play"
+  // and a single tap resumes playback from where it stopped.
   const onVisibilityChange = () => {
-    if (document.visibilityState === 'visible') engine.resumeIfSuspended()
+    if (document.visibilityState === 'visible') engine.resumeIfSuspended().catch(() => {})
   }
   const onPageShow = (e) => {
     // e.persisted === true means this is a bfcache restore, not a fresh load.
     // Scripts don't re-execute on bfcache, but the AudioContext may have been
     // suspended by iOS while the page was backgrounded — resume it.
-    if (e.persisted) engine.resumeIfSuspended()
+    if (e.persisted) engine.resumeIfSuspended().catch(() => {})
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
   window.addEventListener('pageshow', onPageShow)
