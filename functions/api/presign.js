@@ -107,14 +107,20 @@ export async function onRequestPost(context) {
     service:         's3',
   })
 
-  const key        = `tracks/${slug}/${track}.${ext}`
-  const bucketUrl  = `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET_NAME}/${key}`
-  const expiry     = new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000).toISOString()
+  const key       = `tracks/${slug}/${track}.${ext}`
+  const bucketUrl = `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET_NAME}/${key}`
 
-  const signedReq = await r2.sign(
-    new Request(bucketUrl, { method: 'PUT' }),
-    { aws: { signQuery: true, allHeaders: false, datetime: expiry } }
-  )
+  // Presign as query params. aws4fetch fills X-Amz-Date itself (correct compact
+  // SigV4 format); the URL's X-Amz-Expires sets the TTL. Passing a `datetime`
+  // here would have to be the AWS basic format — an ISO string corrupts both the
+  // timestamp and the credential scope, so we let aws4fetch handle it.
+  const signUrl = new URL(bucketUrl)
+  signUrl.searchParams.set('X-Amz-Expires', String(PRESIGN_TTL_SECONDS))
+
+  const signedReq = await r2.sign(signUrl.toString(), {
+    method: 'PUT',
+    aws: { signQuery: true, allHeaders: false },
+  })
 
   return Response.json(
     { url: signedReq.url, method: 'PUT', expiresIn: PRESIGN_TTL_SECONDS },
