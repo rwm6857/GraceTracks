@@ -222,6 +222,7 @@ export async function renderMixer(container, slug) {
 
   const stripEls = {}
   const meterBarEls = {}
+  const meterDotEls = {}
 
   // click and ambient have dedicated transport controls — exclude from strips
   const stripChannels = orderedChannels.filter(s => s !== 'click' && s !== 'ambient')
@@ -249,6 +250,7 @@ export async function renderMixer(container, slug) {
       <div class="gt-strip__meter-wrap">
         <div class="gt-strip__meter-bar"></div>
       </div>
+      <div class="gt-strip__meter-dot" aria-hidden="true"></div>
       <div class="gt-strip__btns">
         <button class="gt-strip__mute gc-btn gc-btn--sm" data-channel="${name}" data-action="mute"
           aria-pressed="false" aria-label="Mute ${escHtml(label)}">M</button>
@@ -259,6 +261,7 @@ export async function renderMixer(container, slug) {
 
     stripEls[name] = strip
     meterBarEls[name] = strip.querySelector('.gt-strip__meter-bar')
+    meterDotEls[name] = strip.querySelector('.gt-strip__meter-dot')
     stripsWrap.appendChild(strip)
   }
   container.appendChild(stripsWrap)
@@ -366,13 +369,25 @@ export async function renderMixer(container, slug) {
   // — Meter updates
   metersInst.onUpdate = (levels) => {
     for (const [name, db] of Object.entries(levels)) {
+      // Map -60..0 dBFS to 0..1
+      const level = Math.max(0, Math.min(1, (db + 60) / 60))
+
+      // Desktop/tablet: vertical bar (height + 3-step color).
       const bar = meterBarEls[name]
-      if (!bar) continue
-      // Map -60..0 dBFS to 0..100%
-      const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100))
-      bar.style.height = `${pct}%`
-      // Color: green < -12, yellow -12..-3, red > -3
-      bar.style.background = db > -3 ? '#ef4444' : db > -12 ? '#eab308' : '#22c55e'
+      if (bar) {
+        bar.style.height = `${level * 100}%`
+        bar.style.background = db > -3 ? '#ef4444' : db > -12 ? '#eab308' : '#22c55e'
+      }
+
+      // Mobile: LED-style dot — smooth green→red hue, brightness/glow tracks level.
+      const dot = meterDotEls[name]
+      if (dot) {
+        const hue = Math.round(120 * (1 - level)) // 120 green → 0 red
+        const color = `hsl(${hue}, 95%, 55%)`
+        dot.style.background = color
+        dot.style.opacity = (0.28 + 0.72 * level).toFixed(2)
+        dot.style.boxShadow = level > 0.04 ? `0 0 ${Math.round(2 + 9 * level)}px ${color}` : 'none'
+      }
     }
   }
 

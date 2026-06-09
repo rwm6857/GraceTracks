@@ -257,6 +257,26 @@
   display: block;
 }
 
+/* Mobile meter: a single LED-style dot (sits above the M/S buttons) instead of
+   the 72px bar, to reclaim vertical space on cramped phone strips. Color, glow
+   and brightness are driven by JS (smooth green→red gradient). */
+.gt-strip__meter-dot {
+  display: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gc-surface-3);
+  opacity: 0.28;
+  flex-shrink: 0;
+  transition: background 60ms linear, opacity 60ms linear, box-shadow 60ms linear;
+}
+
+@media (max-width: 640px) {
+  /* Swap the tall bar for the compact dot when meters are active on phones. */
+  .gt-strips--meters .gt-strip__meter-wrap { display: none; }
+  .gt-strips--meters .gt-strip__meter-dot  { display: block; }
+}
+
 /* Strip buttons */
 .gt-strip__btns {
   display: flex;
