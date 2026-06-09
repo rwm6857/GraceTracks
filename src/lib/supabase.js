@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { cookieStorage } from './cookieStorage.js'
 
 let _client = null
 
@@ -14,7 +15,17 @@ function getClient() {
       'Production AND Preview environments, then redeploy.'
     )
   }
-  _client = createClient(url, key)
+  // Store the session in a cookie scoped to `.gracechords.com` so the login is
+  // shared with gracechords.com (single sign-on). The default storageKey is
+  // derived from the shared project ref, so both apps read the same cookie.
+  _client = createClient(url, key, {
+    auth: {
+      storage: cookieStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
   return _client
 }
 
