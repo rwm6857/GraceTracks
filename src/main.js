@@ -3,54 +3,18 @@ import { renderSongPicker } from './ui/songPicker.js'
 import { renderMixer } from './ui/mixer.js'
 import { renderUploadSong } from './ui/uploadSong.js'
 import { renderRegisterSong } from './ui/registerSong.js'
-import { renderSignIn } from './ui/signIn.js'
-import { getUser, isEditorPlus, signOut, onAuthStateChange } from './lib/auth.js'
+import { createNavbar } from './ui/navbar.js'
+import { initTheme } from './lib/theme.js'
+import { getUser, onAuthStateChange } from './lib/auth.js'
 
 const app = document.getElementById('app')
 
 // ─── Navbar ──────────────────────────────────────────────────────────────────
-let _navEl = null
+let _navbar = null
 
-function renderNav() {
-  const nav = document.createElement('nav')
-  nav.className = 'gt-navbar'
-  nav.innerHTML = `
-    <a href="/" class="gt-navbar__brand" id="nav-home">GraceTracks</a>
-    <div class="gt-navbar__actions">
-      <a
-        href="https://gracechords.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__gc-link"
-      >GraceChords</a>
-      <a href="/upload" class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__upload" id="nav-upload" hidden>
-        Upload
-      </a>
-      <a href="/register" class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__register" id="nav-register" hidden>
-        Register
-      </a>
-      <button class="gc-btn gc-btn--ghost gc-btn--sm gt-navbar__auth" id="nav-auth">Sign In</button>
-    </div>
-  `
-  _navEl = nav
-  return nav
-}
-
-function updateNavAuth(user) {
-  if (!_navEl) return
-  const authBtn      = _navEl.querySelector('#nav-auth')
-  const uploadLink   = _navEl.querySelector('#nav-upload')
-  const registerLink = _navEl.querySelector('#nav-register')
-
-  if (user) {
-    authBtn.textContent = 'Sign Out'
-    uploadLink.hidden = !isEditorPlus(user)
-    registerLink.hidden = !isEditorPlus(user)
-  } else {
-    authBtn.textContent = 'Sign In'
-    uploadLink.hidden = true
-    registerLink.hidden = true
-  }
+function navigate(path) {
+  history.pushState({}, '', path)
+  render()
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -140,17 +104,19 @@ async function render() {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
+  initTheme()
   app.innerHTML = ''
-  app.appendChild(renderNav())
+  _navbar = createNavbar({ navigate })
+  app.appendChild(_navbar.el)
 
   // Resolve initial auth state
   _currentUser = await getUser()
-  updateNavAuth(_currentUser)
+  _navbar.setUser(_currentUser)
 
   // Reactively update navbar on auth changes; re-render upload page if needed
   onAuthStateChange((user) => {
     _currentUser = user
-    updateNavAuth(user)
+    _navbar.setUser(user)
 
     // If upload page is visible, re-render it with new auth context
     if (_uploadEl && !_uploadEl.hidden) {
@@ -166,36 +132,6 @@ async function boot() {
       _registerEl = null
       currentView = null
       render()
-    }
-  })
-
-  // Navbar navigation
-  _navEl.querySelector('#nav-home').addEventListener('click', (e) => {
-    e.preventDefault()
-    history.pushState({}, '', '/')
-    render()
-  })
-
-  _navEl.querySelector('#nav-upload').addEventListener('click', (e) => {
-    e.preventDefault()
-    history.pushState({}, '', '/upload')
-    render()
-  })
-
-  _navEl.querySelector('#nav-register').addEventListener('click', (e) => {
-    e.preventDefault()
-    history.pushState({}, '', '/register')
-    render()
-  })
-
-  _navEl.querySelector('#nav-auth').addEventListener('click', async () => {
-    if (_currentUser) {
-      await signOut()
-      // onAuthStateChange will fire and update state
-    } else {
-      renderSignIn(() => {
-        // onAuthStateChange handles the rest
-      })
     }
   })
 

@@ -14,6 +14,44 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — GraceChords-style navbar (theme toggle, profile + settings dropdowns, drawer)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/grace-tracks-upload-auth-ifwppq`
+**Status**: Completed
+
+**Summary**: Replaced the simple GraceTracks navbar with a vanilla-JS port of the
+GraceChords navbar so the two sites match. Desktop shows the brand, two links
+(GraceChords home + GraceTracks song list), a gear "settings" dropdown, and a
+profile dropdown. The settings tray contains a dark/light theme pill toggle
+(GraceChords' iOS-style segmented control, Sun/Moon), persisted to localStorage
+and applied via `<html data-theme>`. The profile dropdown holds the editor-only
+Upload link (in place of GraceChords' song editor), a link to the GraceChords
+profile page, and Sign Out; signed-out users get a Sign In button. On ≤820px a
+hamburger opens a slide-in drawer with the same links/settings/auth, matching the
+GraceChords breakpoints (hamburger ≤820px, larger touch targets ≤640px). Only
+toggles relevant to GraceTracks are included (theme only — no locale/chord-style).
+
+**Changes**:
+- `src/lib/theme.js` (new) — theme apply/toggle/init ported from GraceChords
+  (`gracetracks.theme` storage key, defaults dark).
+- `src/ui/navbar.js` (new) — `createNavbar({ navigate })` factory: brand, links,
+  settings tray, profile dropdown, hamburger drawer; outside-click + Esc dismiss;
+  body-scroll lock; `setUser()` updates auth slots and editor-gated Upload.
+- `src/ui/icons.js` — added Settings/Sun/Moon/LogOut/ChevronRight/User lucide icons.
+- `src/main.js` — boots `initTheme()` + `createNavbar`; removed the old
+  `renderNav`/`updateNavAuth` and their click wiring.
+- `src/styles/components.css` — ported gc-navbar / settings-tray / pill-toggle /
+  user-dropdown / drawer styles + `gc-btn--secondary`/`--destructive`.
+- `src/styles/main.css` — removed old `.gt-navbar*`; added bridge tokens
+  (`--primary`, `--primary-text`, `--safe-b`, `--drawer-surface`, `--drawer-text`)
+  that the shared nav styles expect (kept tokens.css verbatim).
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21. (No headless browser in
+the sandbox, so not visually screenshotted.)
+
+---
+
 ### 2026-06-09 — Upload page: song search, WAV→M4A, instrument-slot rename
 
 **Agent**: Claude (claude-opus-4-8)
