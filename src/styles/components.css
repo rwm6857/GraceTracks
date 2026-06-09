@@ -696,8 +696,15 @@
 
 .gt-upload {
   max-width: 900px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--space-6) var(--space-5);
+  /* The app shell clips overflow (#app + .gt-main are overflow:hidden), so this
+     view owns its own scrolling — otherwise tall tile states push the footer
+     (Upload button) past the clip boundary and out of reach. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .gt-upload--denied {
