@@ -14,6 +14,32 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — Navbar: shared user sprites + active-page highlight
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/grace-tracks-sprites-navbar-match`
+**Status**: Completed
+
+**Summary**: Made the GraceTracks navbar match GraceChords visually. The profile
+dropdown avatar now uses the same user sprite the person picked on GraceChords
+(stored in `users.preferences.sprite`), and the active nav link gets the same
+orange-pill highlight.
+
+**Changes**:
+- `public/sprites/*.webp` — copied the 15 shared sprite assets from GraceChords.
+- `src/lib/auth.js` — `fetchProfile()` now also reads `preferences.sprite` and
+  attaches it as `user.sprite`.
+- `src/ui/navbar.js` — `spriteAvatar()` helper (mirrors GraceChords' SpriteAvatar,
+  `/sprites/<id>.webp`, default `notes`); used in the desktop avatar button and
+  the drawer profile link; added `setActive(path)` to highlight the Songs link.
+- `src/main.js` — calls `navbar.setActive()` on each route render.
+- `src/styles/components.css` — `.gc-sprite-avatar` styles; avatar button made
+  transparent/padded so the round sprite sits cleanly.
+
+**Build/verify**: `npm run build` clean (15 sprites bundled); `npm test` 21/21.
+
+---
+
 ### 2026-06-09 — Fix role check: read from public.users.role (not app_metadata)
 
 **Agent**: Claude (claude-opus-4-8)

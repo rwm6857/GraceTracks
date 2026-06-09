@@ -8,6 +8,15 @@ import { renderSignIn } from './signIn.js'
 const GC_HOME = 'https://gracechords.com'
 const GC_PROFILE = 'https://gracechords.com/profile'
 
+// User avatar sprites are shared with GraceChords (public/sprites/<id>.webp);
+// the chosen id lives in users.preferences.sprite. Mirrors SpriteAvatar.jsx.
+const DEFAULT_SPRITE = 'notes'
+function spriteAvatar(sprite, size = 32) {
+  const id = sprite || DEFAULT_SPRITE
+  return `<span class="gc-sprite-avatar" style="width:${size}px;height:${size}px">` +
+    `<img src="/sprites/${id}.webp" alt="" width="${size}" height="${size}" /></span>`
+}
+
 /**
  * Builds the GraceChords-style navbar (brand, links, settings tray with the
  * theme toggle, profile dropdown, and a hamburger drawer on mobile/tablet).
@@ -156,7 +165,7 @@ export function createNavbar({ navigate }) {
       authSlot.innerHTML = `
         <div class="gc-user-menu">
           <button class="gc-user-avatar-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
-            ${icon('user', { className: 'gt-icon' })}
+            ${spriteAvatar(user.sprite, 30)}
           </button>
           <div class="gc-user-dropdown" role="menu" hidden>
             <p class="gc-user-dropdown__name" title="${name}">${name}</p>
@@ -197,7 +206,7 @@ export function createNavbar({ navigate }) {
       drawerAuthSlot.innerHTML = `
         ${editor ? `<button type="button" class="gc-btn gc-btn--secondary gc-drawer__profile" data-upload>Upload</button>` : ''}
         <a href="${GC_PROFILE}" class="gc-btn gc-btn--secondary gc-drawer__profile">
-          ${icon('user', { className: 'gt-icon' })}
+          ${spriteAvatar(user.sprite, 28)}
           <span class="gc-profile-link__label">${user.email || 'Profile'}</span>
           ${icon('chevron-right', { className: 'gt-icon gc-profile-link__chevron' })}
         </a>
@@ -271,6 +280,13 @@ export function createNavbar({ navigate }) {
       user = next
       renderAuthSlot()
       renderDrawerAuthSlot()
+    },
+    // Highlight the active link like GraceChords (orange pill). "Songs" is the
+    // GraceTracks song list at "/".
+    setActive(path) {
+      const isSongs = path === '/'
+      songsLink.classList.toggle('active', isSongs)
+      drawerSongs.classList.toggle('active', isSongs)
     },
     destroy() {
       document.removeEventListener('click', onDocClick)
