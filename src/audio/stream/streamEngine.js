@@ -31,6 +31,23 @@ function faderToLinear(v) {
   return 1 + ((v - 0.75) / 0.25) * 1
 }
 
+// Linear-interpolation resampler. Used to convert decoded PCM from the file's
+// sample rate to the AudioContext rate so the worklet's pos counter (which runs
+// at the context rate) stays in sync with startSample coordinates.
+function resample(input, fromRate, toRate) {
+  if (fromRate === toRate) return input
+  const ratio = fromRate / toRate
+  const outLen = Math.round(input.length / ratio)
+  const out = new Float32Array(outLen)
+  for (let i = 0; i < outLen; i++) {
+    const src = i * ratio
+    const lo = src | 0
+    const hi = lo + 1 < input.length ? lo + 1 : lo
+    out[i] = input[lo] + (src - lo) * (input[hi] - input[lo])
+  }
+  return out
+}
+
 export class StreamAudioEngine {
   constructor() {
     this._ctx = null
@@ -256,19 +273,23 @@ export class StreamAudioEngine {
     const ch = this._channels[name]
     if (!ch) { audioData.close(); return }
     const frames = audioData.numberOfFrames
-    const sr = audioData.sampleRate || ch.sampleRate
-    const startSample = Math.round((audioData.timestamp / 1e6) * sr)
-    const a = new Float32Array(frames)
-    audioData.copyTo(a, { planeIndex: 0, format: 'f32-planar' })
-    let b = a
+    const fileSr = audioData.sampleRate || ch.sampleRate
+    // startSample must be in AudioContext-rate units so it lines up with the
+    // worklet's pos counter, which advances at the context rate (not the file rate).
+    const startSample = Math.round((audioData.timestamp / 1e6) * this._sampleRate)
+    const rawA = new Float32Array(frames)
+    audioData.copyTo(rawA, { planeIndex: 0, format: 'f32-planar' })
+    let rawB = rawA
     if (audioData.numberOfChannels > 1) {
-      b = new Float32Array(frames)
-      audioData.copyTo(b, { planeIndex: 1, format: 'f32-planar' })
+      rawB = new Float32Array(frames)
+      audioData.copyTo(rawB, { planeIndex: 1, format: 'f32-planar' })
     }
     audioData.close()
+    const a = resample(rawA, fileSr, this._sampleRate)
+    const b = rawB === rawA ? a : resample(rawB, fileSr, this._sampleRate)
     const transfer = b === a ? [a.buffer] : [a.buffer, b.buffer]
     ch.player.port.postMessage({ type: 'data', startSample, a, b }, transfer)
-    if (!ch._firstDecoded) { ch._firstDecoded = true; this._diag(`${name}: first PCM decoded @sample ${startSample} (${frames} frames)`) }
+    if (!ch._firstDecoded) { ch._firstDecoded = true; this._diag(`${name}: first PCM decoded @sample ${startSample} (${a.length} frames, ${fileSr}→${this._sampleRate})`) }
   }
 
   // ─── Feeding / decode-ahead ──────────────────────────────────────────────────
@@ -284,9 +305,12 @@ export class StreamAudioEngine {
       const chunk = Math.round(0.2 * ch.sampleRate)
       while (ch.cursor < targetSample && ch.cursor < ch.lengthSamples) {
         const n = Math.min(chunk, ch.lengthSamples - ch.cursor)
-        const { a, b } = ch.reader.readRange(ch.cursor, n)
+        const startSample = Math.round(ch.cursor * this._sampleRate / ch.sampleRate)
+        const { a: rawA, b: rawB } = ch.reader.readRange(ch.cursor, n)
+        const a = resample(rawA, ch.sampleRate, this._sampleRate)
+        const b = rawB === rawA ? a : resample(rawB, ch.sampleRate, this._sampleRate)
         const transfer = b === a ? [a.buffer] : [a.buffer, b.buffer]
-        ch.player.port.postMessage({ type: 'data', startSample: ch.cursor, a, b }, transfer)
+        ch.player.port.postMessage({ type: 'data', startSample, a, b }, transfer)
         ch.cursor += n
         ch.fedThrough = ch.cursor
       }
@@ -295,7 +319,8 @@ export class StreamAudioEngine {
 
   /** Re-anchor a channel's decode position to `sample` and flush its player. */
   _seekChannel(ch, sample) {
-    ch.player.port.postMessage({ type: 'flush', pos: sample })
+    const ctxPos = Math.round(sample * this._sampleRate / ch.sampleRate)
+    ch.player.port.postMessage({ type: 'flush', pos: ctxPos })
     if (ch.kind === 'aac') {
       try { ch.decoder.reset(); ch.decoder.configure(ch.config) } catch { /* */ }
       // Start a couple frames early so the AAC filterbank is primed; the player
