@@ -2,6 +2,18 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-09 — Fix unreachable Upload button on the upload view
+
+**Agent**: Claude
+**Branch**: `claude/cool-ptolemy-egt3ee`
+**Status**: Completed
+
+**Summary**: The app shell clips overflow (`#app` and `.gt-main` are `overflow:hidden`), so each view must own its scrolling. `.gt-upload` had no scroll container, so once a stem tile held a file its taller selected-state body grew the grid row and pushed the footer past the clip boundary — the "Upload Recordings" button became unreachable. Made `.gt-upload` flex to fill height and scroll internally (`flex:1; min-height:0; overflow-y:auto`).
+
+**Changes**: `src/styles/components.css` — `.gt-upload` is now a self-scrolling flex item. No JS change; confirmed existing select-mode upload already fills only the provided stem slots and never deletes existing stems.
+
+---
+
 ## Format
 
 Each entry includes:
