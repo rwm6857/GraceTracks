@@ -68,8 +68,7 @@ export function createTransport({
         title="Count-in"
       >
         <span class="gt-transport__countin-icon" aria-hidden="true">
-          <span class="gt-transport__countin-nums">1234</span>
-          <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" class="gt-transport__countin-caret"><path d="M0 0l4 5 4-5z"/></svg>
+          <span class="gt-transport__countin-nums"><span>1</span><span>2</span><span>3</span><span>4</span></span>
         </span>
       </button>
       ${hasClick ? `
@@ -79,10 +78,7 @@ export function createTransport({
         aria-pressed="false"
         title="Click track"
       >
-        <svg class="gt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 21h12l2.5-18H3.5L6 21z" stroke-width="1.5"/>
-          <line x1="12" y1="5.5" x2="17" y2="17.5" stroke-width="2"/>
-        </svg>
+        ${icon('metronome')}
       </button>
       <button
         class="gt-transport__toggle gc-btn gc-btn--sm"
