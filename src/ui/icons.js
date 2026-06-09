@@ -76,7 +76,7 @@ const CHANNEL_ICONS = {
   master: Speaker,
 }
 
-function renderSvg(node, className) {
+function renderSvg(node, className, color) {
   const children = node
     .map(([tag, attrs]) =>
       `<${tag} ${Object.entries(attrs)
@@ -84,8 +84,9 @@ function renderSvg(node, className) {
         .join(' ')}/>`
     )
     .join('')
+  const style = color ? ` style="color:${color}"` : ''
   return (
-    `<svg class="${className}" viewBox="0 0 24 24" fill="none" ` +
+    `<svg class="${className}"${style} viewBox="0 0 24 24" fill="none" ` +
     `stroke="currentColor" stroke-width="2" stroke-linecap="round" ` +
     `stroke-linejoin="round" aria-hidden="true">${children}</svg>`
   )
@@ -109,12 +110,15 @@ export function icon(name, { className = 'gt-icon' } = {}) {
  * @param {string} name - key in CHANNEL_ICONS (e.g. 'drums', 'vox', 'master')
  * @param {object} [opts]
  * @param {string} [opts.className='gt-strip__icon'] - class(es) applied to the <svg>
+ * @param {string} [opts.color] - CSS color for the icon (resolves `currentColor`);
+ *   pass the channel accent so the icon matches the strip.
  * @returns {string} SVG markup
  */
-export function channelIcon(name, { className = 'gt-strip__icon' } = {}) {
+export function channelIcon(name, { className = 'gt-strip__icon', color } = {}) {
+  const style = color ? ` style="color:${color}"` : ''
   const x32 = X32_ICONS[name]
-  if (x32) return x32.replace('<svg', `<svg class="${className}"`)
+  if (x32) return x32.replace('<svg', `<svg class="${className}"${style}`)
   const node = CHANNEL_ICONS[name]
   if (!node) throw new Error(`[icons] unknown channel icon: ${name}`)
-  return renderSvg(node, className)
+  return renderSvg(node, className, color)
 }
