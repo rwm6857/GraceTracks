@@ -130,7 +130,7 @@ export async function renderUploadSong(container, user) {
             <div class="gt-upload__field">
               <label class="gt-upload__label" for="uf-slug">Slug <span aria-hidden="true">*</span></label>
               <input id="uf-slug" class="gt-upload__input" type="text" placeholder="amazing-grace"
-                pattern="[a-z0-9-]+" title="Lowercase letters, numbers, and hyphens only" />
+                pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, and underscores only" />
             </div>
             <div class="gt-upload__field">
               <label class="gt-upload__label" for="uf-tempo">Tempo (BPM)</label>
@@ -440,8 +440,8 @@ export async function renderUploadSong(container, user) {
         formError.hidden = false
         return
       }
-      if (!/^[a-z0-9-]+$/.test(slug)) {
-        formError.textContent = 'Slug may only contain lowercase letters, numbers, and hyphens.'
+      if (!/^[a-z0-9_-]+$/.test(slug)) {
+        formError.textContent = 'Slug may only contain lowercase letters, numbers, hyphens, and underscores.'
         formError.hidden = false
         return
       }

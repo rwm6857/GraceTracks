@@ -89,7 +89,7 @@ export async function onRequestPost(context) {
     return new Response('Bad Request: invalid JSON', { status: 400, headers: corsHeaders })
   }
 
-  if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
+  if (!slug || typeof slug !== 'string' || !/^[a-z0-9_-]+$/.test(slug)) {
     return new Response('Bad Request: invalid slug', { status: 400, headers: corsHeaders })
   }
   if (!VALID_TRACKS.has(track)) {
