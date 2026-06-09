@@ -124,7 +124,19 @@
   height: 20px;
 }
 
-/* Count-in icon: Logic Pro–style ascending "1 2 3 4" numerals */
+/* Count-in button: keep it square like the other transport toggles */
+.gt-transport__toggle[data-action="countin"] {
+  width: var(--gc-control-h);
+  padding-inline: 0;
+}
+@media (max-width: 640px) {
+  .gt-transport__toggle[data-action="countin"] {
+    width: var(--gc-control-h-mobile);
+  }
+}
+
+/* Count-in icon: Logic Pro–style ascending "1 2 3 4" numerals,
+   vertically centered (centers aligned) and tightly spaced */
 .gt-transport__countin-icon {
   display: inline-flex;
   align-items: center;
@@ -132,11 +144,11 @@
 }
 .gt-transport__countin-nums {
   display: inline-flex;
-  align-items: flex-end;
-  gap: 1.5px;
+  align-items: center;
+  gap: 0.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 0.9;
+  line-height: 1;
   font-family: var(--gc-font-mono);
 }
 .gt-transport__countin-nums span {
