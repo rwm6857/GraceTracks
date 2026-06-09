@@ -17,6 +17,21 @@ export async function onRequestPost(context) {
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   }
 
+  // ─── 0. Resolve Supabase config ───────────────────────────────────────────
+  // The Function ideally reads the non-prefixed SUPABASE_URL / SUPABASE_ANON_KEY
+  // secrets, but the same project's frontend requires the VITE_-prefixed ones to
+  // be set in Pages. Both are exposed to Functions at runtime, so fall back to
+  // the VITE_ names — that way a deployment that only set the frontend vars still
+  // authenticates instead of returning a misleading 401.
+  const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL
+  const supabaseAnonKey = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return new Response(
+      'Server misconfigured: set SUPABASE_URL and SUPABASE_ANON_KEY (or the VITE_ equivalents) in the Pages Function environment.',
+      { status: 500, headers: corsHeaders }
+    )
+  }
+
   // ─── 1. Extract and verify JWT ────────────────────────────────────────────
   const authHeader = request.headers.get('Authorization') ?? ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
@@ -26,10 +41,10 @@ export async function onRequestPost(context) {
 
   let user
   try {
-    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        apikey: env.SUPABASE_ANON_KEY,
+        apikey: supabaseAnonKey,
       },
     })
     if (!res.ok) {
@@ -47,11 +62,11 @@ export async function onRequestPost(context) {
   let role = null
   try {
     const roleRes = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/users?id=eq.${user.id}&select=role`,
+      `${supabaseUrl}/rest/v1/users?id=eq.${user.id}&select=role`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          apikey: env.SUPABASE_ANON_KEY,
+          apikey: supabaseAnonKey,
         },
       }
     )
