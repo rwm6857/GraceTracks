@@ -5,7 +5,7 @@ import { resolveStemUrl } from '../audio/stems.js'
 import { Metronome } from '../audio/metronome.js'
 import { Meters } from '../audio/meters.js'
 import { createTransport } from './transport.js'
-import { icon } from './icons.js'
+import { icon, channelIcon } from './icons.js'
 
 const CHANNEL_COLORS = {
   drums:   '#ef4444',
@@ -14,7 +14,7 @@ const CHANNEL_COLORS = {
   elec:    '#22c55e',
   keys:    '#3b82f6',
   synth:   '#06b6d4',
-  vox:     null,       // uses gc-text (inherits from theme)
+  vox:     '#e2e8f0',  // off-white (matches the Master accent)
   strings: '#a855f7',
   click:   '#94a3b8',
   ambient: '#818cf8',
@@ -192,7 +192,7 @@ export async function renderMixer(container, slug) {
         target="_blank"
         rel="noopener noreferrer"
         class="gc-btn gc-btn--ghost gc-btn--sm gt-mixer-header__gracechords-link"
-      >View on GraceChords ↗</a>
+      >View on GraceChords ${icon('external-link')}</a>
       <a href="/" class="gc-btn gc-btn--ghost gc-btn--sm gt-back-link" aria-label="Back to songs">
         ${icon('chevron-left')}
         <span class="gt-back-link__text">Songs</span>
@@ -237,7 +237,7 @@ export async function renderMixer(container, slug) {
     strip.innerHTML = `
       <div class="gt-strip__accent" style="${color ? `background:${color}` : ''}"></div>
       <div class="gt-strip__label">${escHtml(label)}</div>
-      <img class="gt-strip__icon" src="/icons/channels/${name}.svg" alt="" aria-hidden="true" draggable="false"/>
+      ${channelIcon(name, { className: 'gt-strip__icon' })}
       <div class="gt-strip__fader-wrap">
         <input
           type="range"
@@ -269,8 +269,9 @@ export async function renderMixer(container, slug) {
   const masterStrip = document.createElement('div')
   masterStrip.className = 'gt-strip gt-strip--master'
   masterStrip.innerHTML = `
-    <div class="gt-strip__accent" style="background:#e2e8f0"></div>
+    <div class="gt-strip__accent" style="background:var(--gc-separator)"></div>
     <div class="gt-strip__label">Master</div>
+    ${channelIcon('master', { className: 'gt-strip__icon' })}
     <div class="gt-strip__fader-wrap">
       <input
         type="range"

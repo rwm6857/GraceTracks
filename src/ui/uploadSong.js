@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase.js'
 import { getSession, isEditorPlus } from '../lib/auth.js'
-import { icon } from './icons.js'
+import { icon, channelIcon } from './icons.js'
 
 const TRACKS = [
   { id: 'drums',   label: 'Drums' },
@@ -122,7 +122,7 @@ export async function renderUploadSong(container, user) {
 
       <div class="gt-upload__success" id="upload-success" hidden>
         <p class="gt-upload__success-msg">Song uploaded successfully!</p>
-        <a class="gc-btn gc-btn--ghost" id="upload-open-mixer">Open in Mixer →</a>
+        <a class="gc-btn gc-btn--ghost" id="upload-open-mixer">Open in Mixer ${icon('arrow-right')}</a>
       </div>
     </div>
   `
@@ -186,7 +186,7 @@ export async function renderUploadSong(container, user) {
       `
     } else if (state.status === 'done') {
       bodyHtml = `
-        <span class="gt-upload__stem-done">✓ Uploaded</span>
+        <span class="gt-upload__stem-done">${icon('check', { className: 'gt-icon' })} Uploaded</span>
         <span class="gt-upload__stem-filename">${escHtml(state.file.name)}</span>
       `
     } else if (state.status === 'error') {
@@ -198,7 +198,7 @@ export async function renderUploadSong(container, user) {
 
     tile.innerHTML = `
       <div class="gt-upload__stem-icon">
-        <img src="/icons/channels/${track.id}.svg" alt="" width="24" height="24" />
+        ${channelIcon(track.id, { className: 'gt-upload__stem-icon-svg' })}
       </div>
       <span class="gt-upload__stem-label">${track.label}</span>
       <div class="gt-upload__stem-body">${bodyHtml}</div>

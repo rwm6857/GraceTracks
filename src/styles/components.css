@@ -124,25 +124,28 @@
   height: 20px;
 }
 
-/* Count-in icon: Logic Pro–style "1234" block with downward caret */
+/* Count-in icon: Logic Pro–style ascending "1 2 3 4" numerals */
 .gt-transport__countin-icon {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
 }
 .gt-transport__countin-nums {
-  font-size: 9px;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.12em;
-  line-height: 1;
+  line-height: 0.9;
   font-family: var(--gc-font-mono);
 }
-.gt-transport__countin-caret {
+.gt-transport__countin-nums span {
   display: block;
-  flex-shrink: 0;
 }
+.gt-transport__countin-nums span:nth-child(1) { font-size: 7px; }
+.gt-transport__countin-nums span:nth-child(2) { font-size: 10px; }
+.gt-transport__countin-nums span:nth-child(3) { font-size: 13px; }
+.gt-transport__countin-nums span:nth-child(4) { font-size: 16px; }
 
 /* ==========================================================================
    Channel Strip
@@ -819,7 +822,8 @@
   height: 24px;
   flex-shrink: 0;
 }
-.gt-upload__stem-icon img {
+.gt-upload__stem-icon img,
+.gt-upload__stem-icon-svg {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -864,9 +868,16 @@
 }
 
 .gt-upload__stem-done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--gc-font-cap);
   font-weight: 600;
   color: #22c55e;
+}
+.gt-upload__stem-done .gt-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .gt-upload__stem-error-msg {
