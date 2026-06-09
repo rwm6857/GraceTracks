@@ -2,6 +2,32 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-09 — Add "MD" (Music Director) stem
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/sharp-albattani-l44ptt`
+**Status**: Completed
+
+**Summary**: Added a new `md` (Music Director / talkback) stem. It renders as a normal
+mixer channel strip — last strip before Master — with its own fader, mute/solo, meter,
+a light-brown/orange accent (`#cd9b6a`), and an upload slot. Stem files resolve from
+`md` and the aliases `talkback` / `director` / `musicdirector` (.m4a → .wav).
+
+**Changes**:
+- `src/audio/engine.js` — `STEMS` adds `md` after `strings` (so it's the last strip;
+  click/ambient are excluded from strips).
+- `src/audio/stems.js` — `md` alias group: `talkback`, `director`, `musicdirector`.
+- `src/ui/mixer.js` — `CHANNEL_COLORS.md = #cd9b6a`, `CHANNEL_LABELS.md = 'MD'`.
+- `src/ui/uploadSong.js` — `TRACKS` adds the `md` upload slot.
+- `functions/api/presign.js` — `VALID_TRACKS` adds `md` (server-side upload validation).
+- `src/assets/channels/md.svg` (new) — `X32-icons/md.bmp` traced with `potrace -i` (same
+  pipeline as the other X32 icons) to a `currentColor` SVG; wired into `X32_ICONS` in
+  `src/ui/icons.js`.
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21.
+
+---
+
 ### 2026-06-09 — Fix unreachable Upload button on the upload view
 
 **Agent**: Claude

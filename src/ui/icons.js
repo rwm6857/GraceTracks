@@ -45,6 +45,7 @@ import keysSvg from '../assets/channels/keys.svg?raw'
 import synthSvg from '../assets/channels/synth.svg?raw'
 import voxSvg from '../assets/channels/vox.svg?raw'
 import stringsSvg from '../assets/channels/strings.svg?raw'
+import mdSvg from '../assets/channels/md.svg?raw'
 
 const ICONS = {
   play: Play,
@@ -79,6 +80,7 @@ const X32_ICONS = {
   synth: synthSvg,
   vox: voxSvg,
   strings: stringsSvg,
+  md: mdSvg,
 }
 
 /** Lucide fallbacks for channels with no X32 icon (transport-only stems + master). */

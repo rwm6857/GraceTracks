@@ -16,6 +16,7 @@ const CHANNEL_COLORS = {
   synth:   '#06b6d4',
   vox:     '#e2e8f0',  // off-white (matches the Master accent)
   strings: '#a855f7',
+  md:      '#cd9b6a',  // light brown / orange — Music Director
   click:   '#94a3b8',
   ambient: '#818cf8',
 }
@@ -29,6 +30,7 @@ const CHANNEL_LABELS = {
   synth:   'Synth',
   vox:     'Vocals',
   strings: 'Strings',
+  md:      'MD',
   click:   'Click',
   ambient: 'Ambient',
 }

@@ -1,6 +1,6 @@
 import { AwsClient } from 'aws4fetch'
 
-const VALID_TRACKS = new Set(['drums','perc','bass','elec','keys','synth','vox','strings','click','ambient'])
+const VALID_TRACKS = new Set(['drums','perc','bass','elec','keys','synth','vox','strings','md','click','ambient'])
 const VALID_EXTS   = new Set(['m4a', 'wav'])
 const EDITOR_ROLES = new Set(['editor', 'admin', 'owner'])
 

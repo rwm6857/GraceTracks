@@ -1,7 +1,7 @@
 # Channel instrument icons — attribution
 
 The instrument icons in this directory (`drums`, `perc`, `bass`, `elec`, `keys`,
-`synth`, `vox`, `strings`) are derived from the **Behringer X32 scribble-strip
+`synth`, `vox`, `strings`, `md`) are derived from the **Behringer X32 scribble-strip
 icon set**:
 
 - Source: https://github.com/mamarguerat/behringer-icons

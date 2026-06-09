@@ -13,6 +13,7 @@ const TRACKS = [
   { id: 'synth',   label: 'Synth' },
   { id: 'vox',     label: 'Vocals' },
   { id: 'strings', label: 'Strings' },
+  { id: 'md',      label: 'MD' },
   { id: 'click',   label: 'Click Track' },
   { id: 'ambient', label: 'Ambient' },
 ]

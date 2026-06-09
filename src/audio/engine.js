@@ -32,7 +32,7 @@
  *   The result: all stems stay locked to a single clock for the whole song.
  */
 
-export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'click', 'ambient']
+export const STEMS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'md', 'click', 'ambient']
 
 // ─── Drift-correction (phase-lock) tuning ──────────────────────────────────────
 // How often slaves are measured against the master and re-aligned.
