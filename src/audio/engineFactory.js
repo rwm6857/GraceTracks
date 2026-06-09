@@ -12,7 +12,7 @@
  * Rollout: the streaming engine is now the DEFAULT on browsers that support
  * AudioWorklet + WebCodecs AAC (validated on iOS/macOS Safari & Chrome); everything
  * else falls back to the phase-lock MediaElement engine. `?engine=phase` forces the
- * fallback, `?engine=stream` forces streaming (and shows the on-screen diagnostics).
+ * fallback, `?engine=stream` forces streaming; add `?debug` for the on-screen log.
  */
 
 export async function streamingSupported() {
