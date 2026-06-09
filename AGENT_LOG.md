@@ -2,6 +2,29 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-09 — Fix upload presign 401 (resilient Supabase env resolution)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/youthful-davinci-ehmodg`
+**Status**: Completed
+
+**Summary**: The new upload page returned `Presign failed (401)` on every stem while the
+user was signed in. The Pages Function verifies the JWT against
+`${env.SUPABASE_URL}/auth/v1/user`; when only the `VITE_`-prefixed Supabase vars were set
+in the Pages deployment (the frontend needs those to boot), `env.SUPABASE_URL` was
+`undefined`, so the verify fetch failed and the Function returned a misleading 401 for
+every request.
+
+**Changes**:
+- `functions/api/presign.js` — resolve `SUPABASE_URL`/`SUPABASE_ANON_KEY` with a fallback to
+  the `VITE_`-prefixed names (both are exposed to Functions at runtime in Pages); used for
+  both the JWT verify and the PostgREST role lookup. Genuinely-missing config now returns a
+  clear `500` instead of a misleading `401`.
+- `src/ui/uploadSong.js` — clearer per-tile messages: `401` → "Session expired — sign out and
+  back in.", `500` → "Server auth not configured.".
+
+**Build/verify**: `npm test` 21/21, `npm run build` clean.
+
 ### 2026-06-09 — Add "MD" (Music Director) stem
 
 **Agent**: Claude (claude-opus-4-8)

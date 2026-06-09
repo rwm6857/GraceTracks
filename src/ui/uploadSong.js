@@ -516,9 +516,16 @@ export async function renderUploadSong(container, user) {
         })
 
         if (!presignRes.ok) {
-          const msg = presignRes.status === 403
-            ? 'Permission denied. Editor role required.'
-            : `Presign failed (${presignRes.status})`
+          let msg
+          if (presignRes.status === 403) {
+            msg = 'Permission denied. Editor role required.'
+          } else if (presignRes.status === 401) {
+            msg = 'Session expired — sign out and back in.'
+          } else if (presignRes.status === 500) {
+            msg = 'Server auth not configured.'
+          } else {
+            msg = `Presign failed (${presignRes.status})`
+          }
           throw new Error(msg)
         }
 
