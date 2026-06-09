@@ -14,6 +14,36 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — Fix role check: read from public.users.role (not app_metadata)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/grace-tracks-upload-auth-ifwppq`
+**Status**: Completed
+
+**Summary**: Owners/admins/editors were denied the upload button, page, presign,
+and DB write because GraceTracks gated everything on `app_metadata.role`, which
+GraceChords never populates. GraceChords' source of truth is `public.users.role`
+(its `useAuth` reads `users.role`; the DB has `get_user_role()`/`has_min_role()`).
+Re-pointed all three GraceTracks layers at `public.users.role`.
+
+**Changes**:
+- `src/lib/auth.js` — `getUser()`/`onAuthStateChange()` now fetch the role from
+  `public.users` (self-select under RLS) and attach it as `user.role`;
+  `isEditorPlus()` reads `user.role` (falls back to app_metadata).
+- `functions/api/presign.js` — role check now queries
+  `/rest/v1/users?id=eq.<uid>&select=role` with the caller's token instead of
+  reading `app_metadata.role`.
+- `supabase/migrations/20260609000000_songs_stem_role_from_users.sql` (new) —
+  recreates the `songs_write_editor` policy to gate on a `public.users` subquery
+  instead of JWT `app_metadata.role`. **Must be applied** (Supabase SQL editor or
+  `supabase db push`) for uploads to write the song row.
+- `CLAUDE.md` — corrected constraint #6 + DB rule to state the role lives in
+  `public.users.role`.
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21.
+
+---
+
 ### 2026-06-09 — GraceChords-style navbar (theme toggle, profile + settings dropdowns, drawer)
 
 **Agent**: Claude (claude-opus-4-8)
