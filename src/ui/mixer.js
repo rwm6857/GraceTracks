@@ -379,14 +379,22 @@ export async function renderMixer(container, slug) {
         bar.style.background = db > -3 ? '#ef4444' : db > -12 ? '#eab308' : '#22c55e'
       }
 
-      // Mobile: LED-style dot — smooth green→red hue, brightness/glow tracks level.
+      // Mobile: LED-style dot — gray "off" until signal hits, then a smooth
+      // green→red hue with brightness/glow tracking level.
       const dot = meterDotEls[name]
       if (dot) {
-        const hue = Math.round(120 * (1 - level)) // 120 green → 0 red
-        const color = `hsl(${hue}, 95%, 55%)`
-        dot.style.background = color
-        dot.style.opacity = (0.28 + 0.72 * level).toFixed(2)
-        dot.style.boxShadow = level > 0.04 ? `0 0 ${Math.round(2 + 9 * level)}px ${color}` : 'none'
+        if (level <= 0.04) {
+          // Unlit: revert to the CSS gray "off" state.
+          dot.style.background = ''
+          dot.style.opacity = ''
+          dot.style.boxShadow = 'none'
+        } else {
+          const hue = Math.round(120 * (1 - level)) // 120 green → 0 red
+          const color = `hsl(${hue}, 95%, 55%)`
+          dot.style.background = color
+          dot.style.opacity = (0.5 + 0.5 * level).toFixed(2)
+          dot.style.boxShadow = `0 0 ${Math.round(2 + 9 * level)}px ${color}`
+        }
       }
     }
   }

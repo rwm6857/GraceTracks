@@ -262,11 +262,10 @@
    and brightness are driven by JS (smooth green→red gradient). */
 .gt-strip__meter-dot {
   display: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: var(--gc-surface-3);
-  opacity: 0.28;
+  background: rgba(140, 140, 140, 0.45); /* unlit "off" LED (gray) */
   flex-shrink: 0;
   transition: background 60ms linear, opacity 60ms linear, box-shadow 60ms linear;
 }
