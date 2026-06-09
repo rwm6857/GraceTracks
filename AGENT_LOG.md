@@ -14,6 +14,78 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — GraceChords-style navbar (theme toggle, profile + settings dropdowns, drawer)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/grace-tracks-upload-auth-ifwppq`
+**Status**: Completed
+
+**Summary**: Replaced the simple GraceTracks navbar with a vanilla-JS port of the
+GraceChords navbar so the two sites match. Desktop shows the brand, two links
+(GraceChords home + GraceTracks song list), a gear "settings" dropdown, and a
+profile dropdown. The settings tray contains a dark/light theme pill toggle
+(GraceChords' iOS-style segmented control, Sun/Moon), persisted to localStorage
+and applied via `<html data-theme>`. The profile dropdown holds the editor-only
+Upload link (in place of GraceChords' song editor), a link to the GraceChords
+profile page, and Sign Out; signed-out users get a Sign In button. On ≤820px a
+hamburger opens a slide-in drawer with the same links/settings/auth, matching the
+GraceChords breakpoints (hamburger ≤820px, larger touch targets ≤640px). Only
+toggles relevant to GraceTracks are included (theme only — no locale/chord-style).
+
+**Changes**:
+- `src/lib/theme.js` (new) — theme apply/toggle/init ported from GraceChords
+  (`gracetracks.theme` storage key, defaults dark).
+- `src/ui/navbar.js` (new) — `createNavbar({ navigate })` factory: brand, links,
+  settings tray, profile dropdown, hamburger drawer; outside-click + Esc dismiss;
+  body-scroll lock; `setUser()` updates auth slots and editor-gated Upload.
+- `src/ui/icons.js` — added Settings/Sun/Moon/LogOut/ChevronRight/User lucide icons.
+- `src/main.js` — boots `initTheme()` + `createNavbar`; removed the old
+  `renderNav`/`updateNavAuth` and their click wiring.
+- `src/styles/components.css` — ported gc-navbar / settings-tray / pill-toggle /
+  user-dropdown / drawer styles + `gc-btn--secondary`/`--destructive`.
+- `src/styles/main.css` — removed old `.gt-navbar*`; added bridge tokens
+  (`--primary`, `--primary-text`, `--safe-b`, `--drawer-surface`, `--drawer-text`)
+  that the shared nav styles expect (kept tokens.css verbatim).
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21. (No headless browser in
+the sandbox, so not visually screenshotted.)
+
+---
+
+### 2026-06-09 — Upload page: song search, WAV→M4A, instrument-slot rename
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/grace-tracks-upload-auth-ifwppq`
+**Status**: Completed
+
+**Summary**: Reworked the editor-only upload page so recordings attach to an
+existing GraceChords song chosen via a search bar that mirrors the GraceChords
+word-prefix search ranking, with a "create a new song" fallback. Up to 10 stems
+slot into fixed instrument tiles (each file is renamed to its instrument slot in
+R2). WAV files are converted to M4A in-browser before upload where WebCodecs AAC
+encoding is available, falling back to uploading the raw WAV otherwise. Auth
+gating (editor/admin/owner) and the role-gated nav Upload button already existed
+and were left intact — no new database values added.
+
+**Changes**:
+- `src/lib/songSearch.js` (new) — trimmed copy of the GraceChords word-prefix
+  search ranking (title + artist), returns best-match-first.
+- `src/audio/encodeM4a.js` (new) — `isM4aEncodeSupported()` + `wavFileToM4a()`
+  using WebCodecs `AudioEncoder` (mp4a.40.2) + `mp4-muxer`. Upload-time only;
+  graceful fallback to raw WAV where unsupported (iOS Safari/Firefox).
+- `src/ui/uploadSong.js` — song-search combobox (loads full catalog; editors can
+  read all rows via the editor RLS policy), selected-song card + "new song"
+  toggle; per-tile target-filename hint; WAV→M4A on submit; existing songs get an
+  `update` of only stem fields (no metadata clobber), new songs `upsert`.
+- `src/styles/components.css` — search dropdown / selected-song card / new-song
+  toggle styles; upload-slot scribble-strip icon resized 24→36px (downsized from
+  the mixer's 44px) per request.
+- `package.json` — added `mp4-muxer`.
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21.
+
+---
+
 ### 2026-06-09 — X32 instrument icons (BMP → SVG)
 
 **Agent**: Claude (claude-opus-4-8)

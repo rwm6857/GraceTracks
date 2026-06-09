@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "aws4fetch": "^1.0.20",
     "lucide": "^1.17.0",
+    "mp4-muxer": "^5.2.2",
     "mp4box": "^2.3.0"
   }
 }

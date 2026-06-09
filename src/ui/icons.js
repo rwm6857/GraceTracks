@@ -27,6 +27,12 @@ import {
   ArrowRight,
   Check,
   Speaker,
+  Settings,
+  Sun,
+  Moon,
+  LogOut,
+  ChevronRight,
+  User,
 } from 'lucide'
 
 // X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
@@ -55,6 +61,12 @@ const ICONS = {
   'external-link': ExternalLink,
   'arrow-right': ArrowRight,
   check: Check,
+  settings: Settings,
+  sun: Sun,
+  moon: Moon,
+  'log-out': LogOut,
+  'chevron-right': ChevronRight,
+  user: User,
 }
 
 /** X32 instrument icons (raw SVG strings, already `currentColor` + 0 0 64 64). */

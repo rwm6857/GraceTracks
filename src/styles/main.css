@@ -5,6 +5,17 @@
 @import './tokens.css';
 @import './components.css';
 
+/* Bridge aliases the shared GraceChords nav/drawer styles expect. These live in
+   GraceChords' base.css (not the verbatim tokens.css), so we define them here
+   rather than editing tokens.css. */
+:root {
+  --primary: var(--gc-primary);
+  --primary-text: #ffffff;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --drawer-surface: color-mix(in srgb, var(--gc-surface-1) 94%, transparent);
+  --drawer-text: var(--gc-text);
+}
+
 /* ===== Global Reset ===== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -49,37 +60,6 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-/* ===== Navbar ===== */
-.gt-navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-5);
-  background: var(--gc-surface-1);
-  border-bottom: 1px solid var(--gc-separator);
-  box-shadow: var(--gc-shadow-1);
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.gt-navbar__brand {
-  font-family: var(--gc-font-brand);
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--gc-text);
-  text-decoration: none;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-.gt-navbar__brand:hover {
-  color: var(--gc-primary);
-}
-
-.gt-navbar__gc-link {
-  font-size: var(--gc-btn-font-size-sm);
 }
 
 /* ===== Song Picker ===== */
@@ -270,7 +250,7 @@ body {
 
 /* — 480px: tighten spacing — */
 @media (max-width: 480px) {
-  .gt-navbar {
+  .gc-navbar__inner {
     padding: var(--space-2) var(--space-3);
   }
 
