@@ -849,8 +849,10 @@
 }
 
 .gt-upload__stem-icon {
-  width: 24px;
-  height: 24px;
+  /* Reuses the X32 scribble-strip icons from the mixer (44px), downsized for
+     the upload slots so the instrument artwork stays legible. */
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
 }
 .gt-upload__stem-icon img,
@@ -977,6 +979,114 @@
   color: var(--gc-text);
   margin: 0;
 }
+
+/* Target filename shown on a selected stem tile (the instrument-slot rename) */
+.gt-upload__stem-target {
+  font-size: var(--gc-font-cap);
+  font-family: var(--gc-font-mono);
+  color: var(--gc-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Song search combobox ──────────────────────────────────────────────────── */
+.gt-upload__song-search {
+  position: relative;
+  max-width: 480px;
+}
+
+.gt-upload__search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.gt-upload__search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.gt-upload__search-item:hover,
+.gt-upload__search-item:focus {
+  background: var(--gc-surface-3);
+}
+
+.gt-upload__search-title {
+  font-size: var(--gc-font-body);
+  color: var(--gc-text);
+}
+
+.gt-upload__search-meta {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-secondary);
+}
+
+/* Selected-song card */
+.gt-upload__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 480px;
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--gc-primary) 7%, var(--gc-surface-1));
+  border: 1px solid var(--gc-primary);
+  border-radius: var(--radius-md);
+}
+
+.gt-upload__selected-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gt-upload__selected-title {
+  font-size: var(--gc-font-body);
+  font-weight: 600;
+  color: var(--gc-text);
+}
+
+.gt-upload__selected-meta {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-secondary);
+}
+
+/* "Create a new song" toggle */
+.gt-upload__newlink {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-sub);
+  color: var(--gc-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.gt-upload__newlink:hover { color: var(--gc-primary-hover); }
+
+.gt-upload__newlink[hidden] { display: none; }
+
+/* The new-song form sits below the toggle when revealed */
+#new-song-form { margin-top: var(--space-4); }
 
 /* Register page — R2 stem check result (reuses .gt-upload* layout otherwise) */
 .gt-register__check-result {
