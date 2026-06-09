@@ -19,7 +19,7 @@ See `CODEX_CONTEXT.md` for full project context (architecture, schema, file tree
 3. **Sequential stem uploads.** Stem uploads run one-at-a-time (not `Promise.all`) to avoid simultaneous large reads on mobile.
 4. **Presigned URLs only.** The Pages Function (`functions/api/presign.js`) issues a signed R2 URL; the browser uploads directly. Never proxy binary data through a Worker.
 5. **Separate from GraceChords.** They share one Supabase project but are entirely separate Cloudflare deployments. Never modify GraceChords code from this repo.
-6. **Roles are read-only here.** `app_metadata.role` is written by GraceChords. GraceTracks only reads it; never write to `app_metadata`.
+6. **Roles are read-only here.** The role lives in `public.users.role` (the same source GraceChords' `useAuth` reads — it is **not** in auth `app_metadata`). GraceTracks only reads it (client via `users` table self-select, presign via PostgREST, RLS via a `public.users` subquery); never write roles from here.
 7. **PWA must stay in prompt mode.** `registerType: 'prompt'` in `vite.config.js`. Do not change to `autoUpdate` — it breaks iOS Safari installs.
 
 ---
@@ -161,7 +161,7 @@ Theme is set via `[data-theme="dark"]` attribute on the root element. The app de
 - Query only the `songs` table
 - Always filter: `has_stems = true` and `is_deleted = false` for public reads
 - `stem_slug` can be null — fall back to `slug` when resolving R2 paths
-- Never write to `app_metadata` — that belongs to GraceChords
+- Role lives in `public.users.role`; read it (self-select is allowed by RLS), never write it from here
 - RLS is enforced by Supabase — trust it; don't re-implement in the client
 
 ---

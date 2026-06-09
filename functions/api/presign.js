@@ -40,8 +40,28 @@ export async function onRequestPost(context) {
     return new Response('Unauthorized', { status: 401, headers: corsHeaders })
   }
 
-  // ─── 2. Check editor+ role ────────────────────────────────────────────────
-  const role = user?.app_metadata?.role
+  // ─── 2. Check editor+ role (from the shared public.users table) ───────────
+  // The role is NOT in auth app_metadata — GraceChords stores it on
+  // public.users.role, so we look it up via PostgREST using the caller's token
+  // (RLS lets a user read their own row).
+  let role = null
+  try {
+    const roleRes = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/users?id=eq.${user.id}&select=role`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: env.SUPABASE_ANON_KEY,
+        },
+      }
+    )
+    if (roleRes.ok) {
+      const rows = await roleRes.json()
+      role = rows?.[0]?.role ?? null
+    }
+  } catch {
+    role = null
+  }
   if (!EDITOR_ROLES.has(role)) {
     return new Response('Forbidden: editor role required', { status: 403, headers: corsHeaders })
   }
