@@ -52,9 +52,9 @@ export class StreamAudioEngine {
     this._onPositionUpdate = null
     this._onEnded = null
     this._playGeneration = 0
-    // On-screen diagnostics (no console needed on iOS). On when ?engine=stream or ?debug.
+    // On-screen diagnostics (no console needed on iOS). Hidden unless ?debug is set.
     this._diagEl = null
-    try { this._diagEnabled = /[?&](engine=stream|debug)/.test(location.search) } catch { this._diagEnabled = false }
+    try { this._diagEnabled = /[?&]debug\b/.test(location.search) } catch { this._diagEnabled = false }
   }
 
   /** Record a diagnostic line; show a small, collapsed, copyable panel on-screen. */

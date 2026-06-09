@@ -9,10 +9,10 @@
  * so they are code-split into a separate chunk — the default (phase-lock) path
  * never downloads them.
  *
- * Rollout: while the streaming engine is being validated on-device it is OPT-IN
- * via `?engine=stream` (or localStorage `gt.engine='stream'`). `?engine=phase`
- * forces the fallback. Once validated, flip `_defaultToStreaming()` to use
- * capability detection so supported browsers get it automatically.
+ * Rollout: the streaming engine is now the DEFAULT on browsers that support
+ * AudioWorklet + WebCodecs AAC (validated on iOS/macOS Safari & Chrome); everything
+ * else falls back to the phase-lock MediaElement engine. `?engine=phase` forces the
+ * fallback, `?engine=stream` forces streaming; add `?debug` for the on-screen log.
  */
 
 export async function streamingSupported() {
@@ -33,8 +33,8 @@ function _forcedChoice() {
   try { return localStorage.getItem('gt.engine') } catch { return null }
 }
 
-// Flip this to `streamingSupported()` once the streaming engine is validated.
-async function _defaultToStreaming() { return false }
+// Streaming is the default wherever the browser can support it.
+async function _defaultToStreaming() { return streamingSupported() }
 
 export async function createEngine() {
   const forced = _forcedChoice()

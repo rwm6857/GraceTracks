@@ -273,7 +273,7 @@ Full git log: `git log --oneline`
 ## Key Architectural Constraints
 
 1. **No framework** — the codebase is intentional vanilla JS. Do not introduce React, Vue, Svelte, etc.
-2. **Streaming audio only** — never use `decodeAudioData` for stems. iOS Safari will OOM with multiple large files decoded into buffers. Always use `MediaElementAudioSourceNode`.
+2. **Stream audio in bounded chunks** — never decode a whole song of PCM into memory (≈1.1 GB Float32 for a 6-min 8-stem song → iOS OOM, measured). Default engine (`src/audio/stream/`) uses WebCodecs `AudioDecoder` decode-ahead (~4 s) feeding per-stem `pcm-player` AudioWorklet nodes on one shared clock (sample-locked, ~tens of MB resident); the `MediaElementAudioSourceNode` phase-lock engine (`src/audio/engine.js`) is the fallback. `src/audio/engineFactory.js` chooses at runtime.
 3. **Sequential uploads** — stem uploads are done one at a time (not `Promise.all`) to avoid exhausting mobile memory with simultaneous large file reads.
 4. **Presigned URLs, not proxy** — the Pages Function only issues a signed URL; the browser uploads directly to R2. Never proxy binary upload through a Worker.
 5. **Shared Supabase, separate Cloudflare** — GraceTracks and GraceChords share one Supabase project but are entirely separate Cloudflare Pages deployments with separate R2 buckets and separate Pages Functions.

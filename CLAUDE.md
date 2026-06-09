@@ -11,7 +11,11 @@ See `CODEX_CONTEXT.md` for full project context (architecture, schema, file tree
 ## Critical Constraints (Read Before Making Any Change)
 
 1. **No JS framework.** The codebase is intentional vanilla JS. Do not introduce React, Vue, Svelte, or any component framework.
-2. **Streaming audio only.** Never use `decodeAudioData` for stems — use `MediaElementAudioSourceNode`. iOS Safari OOMs with decoded buffers across many large files.
+2. **Stream audio in bounded chunks — never hold a whole song of PCM.** A full-file `decodeAudioData` (≈1.1 GB Float32 for a 6-min 8-stem song) OOMs iOS Safari — measured, confirmed. Two engines exist, chosen at runtime by `src/audio/engineFactory.js`:
+   - **Default (`src/audio/stream/`):** WebCodecs `AudioDecoder` decodes only ~4 s ahead of the playhead into per-stem `pcm-player` AudioWorklet nodes that share one AudioContext clock (sample-locked, ~tens of MB resident). Used where AudioWorklet + WebCodecs AAC exist.
+   - **Fallback (`src/audio/engine.js`):** `MediaElementAudioSourceNode` per stem with a drift-correction (phase-lock) loop. Used everywhere else.
+
+   Do not add a path that decodes entire stems into resident PCM / a whole-stem `AudioBufferSourceNode`.
 3. **Sequential stem uploads.** Stem uploads run one-at-a-time (not `Promise.all`) to avoid simultaneous large reads on mobile.
 4. **Presigned URLs only.** The Pages Function (`functions/api/presign.js`) issues a signed R2 URL; the browser uploads directly. Never proxy binary data through a Worker.
 5. **Separate from GraceChords.** They share one Supabase project but are entirely separate Cloudflare deployments. Never modify GraceChords code from this repo.
@@ -46,7 +50,11 @@ npm test           # Vitest unit tests (src/audio/engine.test.js)
 | Path | Purpose |
 |---|---|
 | `src/main.js` | App entry, SPA router, navbar, auth state |
-| `src/audio/engine.js` | AudioContext mixer — load/play/pause/seek/fader/mute/solo |
+| `src/audio/engineFactory.js` | Runtime engine selection — streaming (default, if supported) vs phase-lock fallback |
+| `src/audio/stream/streamEngine.js` | **Default** engine — WebCodecs decode-ahead → per-stem `pcm-player` worklet (sample-locked) |
+| `src/audio/stream/pcmPlayerProcessor.js` | `pcm-player` AudioWorkletProcessor (one per stem, content-locked) |
+| `src/audio/stream/demux.js` | mp4box MP4→AAC `EncodedAudioChunk`s + `AudioSpecificConfig`; WAV reader |
+| `src/audio/engine.js` | Fallback engine — `MediaElement` mixer + drift-correction loop (load/play/pause/seek/fader/mute/solo) |
 | `src/audio/metronome.js` | Lookahead click scheduler with count-in |
 | `src/audio/meters.js` | RAF-based VU metering via AnalyserNode |
 | `src/audio/stems.js` | Stem URL probing + format fallback (m4a → wav) |

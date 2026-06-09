@@ -230,6 +230,36 @@ NOT yet validated in a browser — to be confirmed on-device via `?engine=stream
 
 ---
 
+### 2026-06-08 — Streaming engine validated on-device + made the default
+
+**Agent**: Claude
+**Branch**: `claude/nifty-shannon-lWyhl`
+**Status**: Completed
+
+**Summary**:
+Validated the streaming engine end-to-end on real devices and made it the default.
+On iPhone (iOS 18.7 / Safari 26.5) and macOS Safari & Chrome, the full pipeline works:
+all 8 stems demux (mp4a.40.2, real 2-byte ASC) → `AudioDecoder` configures → decode-ahead
+→ per-stem `pcm-player` worklets play sample-locked. Scrub (while playing and paused),
+click/ambient toggles, and pause all stay tight. Resident PCM ~tens of MB.
+
+**Changes**:
+- `src/audio/engineFactory.js` — `_defaultToStreaming()` now returns `streamingSupported()`,
+  so browsers with AudioWorklet + WebCodecs AAC get the streaming engine automatically;
+  others fall back to the phase-lock `MediaElement` engine. `?engine=phase` / `?engine=stream`
+  still override.
+- `CLAUDE.md` / `CODEX_CONTEXT.md` — rewrote constraint #2 to describe the two-engine setup
+  (stream-decode in bounded chunks; never hold a whole song of PCM); added the new modules
+  to the codebase map.
+
+**Build/verify**: `npm run build` clean (streaming engine code-split); `npm test` 21/21.
+
+**Remaining (optional)**: broaden device matrix (Android Chrome / Firefox / older iOS — all
+covered by capability detection + fallback); decide whether to remove the `stem-spike.html`
+diagnostic page; consider SW-precache tuning for the streaming chunk.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:
