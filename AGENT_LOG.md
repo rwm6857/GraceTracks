@@ -14,6 +14,33 @@ Each entry includes:
 
 ---
 
+### 2026-06-09 — X32 instrument icons (BMP → SVG)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/sharp-albattani-l44ptt`
+**Status**: Completed
+
+**Summary**: Replaced the Lucide instrument icons with the Behringer X32 scribble-strip
+set (drums, perc, bass, elec, keys, synth, vox, strings). The source 64×64 BMPs (white
+line-art on black) were vectorised with `potrace -i` and rewritten to `currentColor` so
+they inherit the theme. Lucide still backs `click`/`ambient`/`master` and all transport/UI
+icons.
+
+**Changes**:
+- `X32-icons/*.bmp` — source bitmaps (from github.com/mamarguerat/behringer-icons, GPL-3.0).
+- `scripts/convert-x32-icons.sh` — reproducible potrace pipeline (BMP → currentColor SVG).
+- `src/assets/channels/*.svg` — 8 vendored instrument icons + `ATTRIBUTION.md` (GPL-3.0).
+- `src/ui/icons.js` — `channelIcon()` returns the X32 SVG (Vite `?raw` import, class
+  injected) for the 8 instruments; falls back to Lucide for click/ambient/master.
+- License is compatible: GraceTracks is GPL-3.0, same as the icon source.
+
+**Build/verify**: `npm run build` clean; `npm test` 21/21; rendered preview confirmed all 8
+trace cleanly on the dark theme.
+
+**Note**: the old `public/icons/channels/*.svg` are now unused (kept for now; safe to remove).
+
+---
+
 ### 2026-06-09 — Lucide icons + Stop/Rewind transport button
 
 **Agent**: Claude (claude-opus-4-8)

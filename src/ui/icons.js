@@ -6,8 +6,10 @@
  * render them to an SVG markup string so they drop straight into the existing
  * innerHTML template literals, keeping the vanilla-JS pattern intact.
  *
- * The only bespoke (non-Lucide) icon left is the count-in "1234" block in
- * transport.js — Logic-Pro-style ascending numerals have no Lucide equivalent.
+ * Non-Lucide icons: the per-instrument channel icons come from the Behringer X32
+ * scribble-strip set (see channelIcon below + src/assets/channels/ATTRIBUTION.md),
+ * and the count-in "1234" block in transport.js is bespoke (Logic-Pro-style
+ * ascending numerals have no Lucide equivalent).
  */
 import {
   Play,
@@ -24,14 +26,19 @@ import {
   ExternalLink,
   ArrowRight,
   Check,
-  Drum,
-  Piano,
-  KeyboardMusic,
   Speaker,
-  Guitar,
-  MicVocal,
-  Music4,
 } from 'lucide'
+
+// X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
+// original BMPs to currentColor SVGs — see src/assets/channels/ATTRIBUTION.md).
+import drumsSvg from '../assets/channels/drums.svg?raw'
+import percSvg from '../assets/channels/perc.svg?raw'
+import bassSvg from '../assets/channels/bass.svg?raw'
+import elecSvg from '../assets/channels/elec.svg?raw'
+import keysSvg from '../assets/channels/keys.svg?raw'
+import synthSvg from '../assets/channels/synth.svg?raw'
+import voxSvg from '../assets/channels/vox.svg?raw'
+import stringsSvg from '../assets/channels/strings.svg?raw'
 
 const ICONS = {
   play: Play,
@@ -50,16 +57,20 @@ const ICONS = {
   check: Check,
 }
 
-/** Per-channel / per-stem icons, shared by the mixer strips and upload tiles. */
+/** X32 instrument icons (raw SVG strings, already `currentColor` + 0 0 64 64). */
+const X32_ICONS = {
+  drums: drumsSvg,
+  perc: percSvg,
+  bass: bassSvg,
+  elec: elecSvg,
+  keys: keysSvg,
+  synth: synthSvg,
+  vox: voxSvg,
+  strings: stringsSvg,
+}
+
+/** Lucide fallbacks for channels with no X32 icon (transport-only stems + master). */
 const CHANNEL_ICONS = {
-  drums: Drum,
-  perc: Music4,
-  bass: Guitar,
-  elec: Guitar,
-  keys: Piano,
-  synth: KeyboardMusic,
-  vox: MicVocal,
-  strings: Music4,
   click: Metronome,
   ambient: Waves,
   master: Speaker,
@@ -101,6 +112,8 @@ export function icon(name, { className = 'gt-icon' } = {}) {
  * @returns {string} SVG markup
  */
 export function channelIcon(name, { className = 'gt-strip__icon' } = {}) {
+  const x32 = X32_ICONS[name]
+  if (x32) return x32.replace('<svg', `<svg class="${className}"`)
   const node = CHANNEL_ICONS[name]
   if (!node) throw new Error(`[icons] unknown channel icon: ${name}`)
   return renderSvg(node, className)
