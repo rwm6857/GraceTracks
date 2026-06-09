@@ -33,6 +33,7 @@ import {
   LogOut,
   ChevronRight,
   User,
+  Headset,
 } from 'lucide'
 
 // X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
@@ -81,11 +82,14 @@ const X32_ICONS = {
   strings: stringsSvg,
 }
 
-/** Lucide fallbacks for channels with no X32 icon (transport-only stems + master). */
+/** Lucide fallbacks for channels with no X32 icon (transport-only stems + master).
+ *  `md` (Music Director / talkback) is a temporary Headset until md.bmp is traced
+ *  into src/assets/channels/md.svg (then move it into X32_ICONS above). */
 const CHANNEL_ICONS = {
   click: Metronome,
   ambient: Waves,
   master: Speaker,
+  md: Headset,
 }
 
 function renderSvg(node, className, color) {

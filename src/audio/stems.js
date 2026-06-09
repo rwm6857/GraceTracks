@@ -13,6 +13,7 @@
  *   drums → drum
  *   perc  → percussion
  *   vox   → vocals / vocal
+ *   md    → talkback / director / musicdirector
  *
  * @param {string} r2Base   - Base URL, e.g. https://assets.gracechords.com
  * @param {string} stemSlug - Subdirectory for this song's stems
@@ -25,6 +26,7 @@ const STEM_ALIASES = {
   perc:  ['percussion'],
   synth: ['2nd', '2nd keys', '2nd-keys'],
   vox:   ['vocals', 'vocal'],
+  md:    ['talkback', 'director', 'musicdirector'],
 }
 
 export async function resolveStemUrl(r2Base, stemSlug, stemId) {
