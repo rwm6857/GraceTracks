@@ -16,6 +16,7 @@
  * @param {function} opts.onMetersToggle - called with boolean (active)
  */
 import { icon } from './icons.js'
+import { getBool, getNumber, setBool, setNumber } from '../lib/prefs.js'
 
 export function createTransport({
   engine, metronome, meters, song,
@@ -27,11 +28,14 @@ export function createTransport({
   const hasClick   = engine.getLoadedChannels().includes('click')
   const hasAmbient = engine.getLoadedChannels().includes('ambient')
 
-  let countInEnabled = true
-  let clickEnabled   = false
-  let clickVolume    = 0.75   // unity gain; adjusted by vol up/down buttons
+  // Restore the user's last-used transport preferences (persisted in
+  // localStorage). Track faders/mutes/solos are deliberately NOT persisted —
+  // they differ song to song. Defaults match a first-run experience.
+  let countInEnabled = getBool('countIn', true)
+  let clickEnabled   = getBool('clickEnabled', false)
+  let clickVolume    = getNumber('clickVolume', 0.75, { min: 0, max: 1 }) // unity gain; adjusted by vol up/down buttons
   let ambientEnabled = false
-  let metersActive   = false
+  let metersActive   = getBool('meters', false)
 
   const el = document.createElement('div')
   el.className = 'gt-transport'
@@ -127,6 +131,23 @@ export function createTransport({
   const metronomeBtn = el.querySelector('[data-action="metronome"]')  // null if no click stem
   const ambientBtn   = el.querySelector('[data-action="ambient"]')    // null if no ambient stem
   const metersBtn    = el.querySelector('[data-action="meters"]')
+
+  // Reflect restored preferences in the controls and the audio engine. The
+  // HTML above renders first-run defaults; this brings everything in line with
+  // whatever was persisted from the last session.
+  function syncToggle(btn, on) {
+    if (!btn) return
+    btn.setAttribute('aria-pressed', String(on))
+    btn.classList.toggle('is-active', on)
+  }
+  syncToggle(countInBtn, countInEnabled)
+  syncToggle(metronomeBtn, clickEnabled)
+  syncToggle(metersBtn, metersActive)
+  if (metronomeBtn) engine.setFader('click', clickEnabled ? clickVolume : 0)
+  if (metersActive) {
+    meters.start()
+    onMetersToggle?.(true)
+  }
 
   function formatTime(secs) {
     const s = Math.floor(secs)
@@ -297,18 +318,22 @@ export function createTransport({
       countInEnabled = !countInEnabled
       countInBtn.setAttribute('aria-pressed', String(countInEnabled))
       countInBtn.classList.toggle('is-active', countInEnabled)
+      setBool('countIn', countInEnabled)
     } else if (action === 'metronome') {
       // Toggle click track stem (audio file), not the oscillator generator
       clickEnabled = !clickEnabled
       metronomeBtn.setAttribute('aria-pressed', String(clickEnabled))
       metronomeBtn.classList.toggle('is-active', clickEnabled)
       engine.setFader('click', clickEnabled ? clickVolume : 0)
+      setBool('clickEnabled', clickEnabled)
     } else if (action === 'click-vol-down') {
       clickVolume = Math.max(0, Math.round((clickVolume - 0.1) * 10) / 10)
       if (clickEnabled) engine.setFader('click', clickVolume)
+      setNumber('clickVolume', clickVolume)
     } else if (action === 'click-vol-up') {
       clickVolume = Math.min(1, Math.round((clickVolume + 0.1) * 10) / 10)
       if (clickEnabled) engine.setFader('click', clickVolume)
+      setNumber('clickVolume', clickVolume)
     } else if (action === 'ambient') {
       ambientEnabled = !ambientEnabled
       ambientBtn.setAttribute('aria-pressed', String(ambientEnabled))
@@ -320,6 +345,7 @@ export function createTransport({
       metersBtn.classList.toggle('is-active', metersActive)
       metersActive ? meters.start() : meters.stop()
       onMetersToggle?.(metersActive)
+      setBool('meters', metersActive)
     }
   })
 
