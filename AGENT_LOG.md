@@ -2,7 +2,27 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
-### 2026-06-09 — Fix dead transport after iOS screen-lock (AudioContext interruption recovery)
+### 2026-06-10 — Persist transport preferences in localStorage
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/user-prefs-local-storage-i93wv5`
+**Status**: Completed
+
+**Summary**: Remember the user's global transport control choices across sessions so the mixer
+reopens the way they left it. Persisted: count-in on/off, click track on/off, click volume, and
+meters on/off. Theme (dark/light) was already persisted via `src/lib/theme.js`. Per-song track
+state (faders, mutes, solos) is intentionally left untouched since it differs song to song.
+
+**Changes**:
+- Added `src/lib/prefs.js` — small namespaced (`gracetracks.prefs.*`) localStorage helper with
+  `getBool`/`getNumber`/`setBool`/`setNumber`, all try/catch-wrapped so disabled/full storage
+  (Safari private mode) silently falls back to in-memory defaults.
+- `src/ui/transport.js`: initialize `countInEnabled` / `clickEnabled` / `clickVolume` /
+  `metersActive` from prefs (defaults unchanged); on mount, sync restored values into the toggle
+  button states and the audio engine (click fader + meters start); write each value back on
+  toggle/adjustment.
+
+**Build/verify**: `npm run build` clean; `npm test` 28/28.
 
 **Agent**: Claude (claude-opus-4-8)
 **Branch**: `claude/tender-volta-4u2cqz`
