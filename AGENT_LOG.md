@@ -2,6 +2,28 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-12 — Expand audio unit-test coverage
+
+**Agent**: Claude
+**Branch**: `claude/festive-hawking-tzjaqx`
+**Status**: Completed
+
+**Summary**: The only existing suite covered the phase-lock fallback engine; the surrounding
+audio modules had no tests. Added focused unit tests for stem resolution, VU metering, the
+metronome/count-in scheduler, and runtime engine selection. No production code changed.
+
+**Changes**:
+- `src/audio/stems.test.js` — `resolveStemUrl` m4a→wav format order, canonical-before-alias
+  probing, network-error resilience, null + warning when nothing resolves.
+- `src/audio/meters.test.js` — RMS→dBFS math (0 dBFS full-scale, -Infinity silence), skips
+  channels without an analyser, RAF start/stop lifecycle.
+- `src/audio/metronome.test.js` — count-in schedules one click per beat (accent on the
+  downbeat) and fires onBeat/onReady on schedule; start/stop halts the lookahead loop.
+- `src/audio/engineFactory.test.js` — `streamingSupported` capability detection and
+  `createEngine` selection (?engine= / localStorage overrides, streaming-where-supported
+  default, phase-lock fallback); concrete engines mocked.
+- Suite now 49/49 (was 28).
+
 ### 2026-06-10 — Persist transport preferences in localStorage
 
 **Agent**: Claude (claude-opus-4-8)
