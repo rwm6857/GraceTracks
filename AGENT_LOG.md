@@ -2,6 +2,29 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-12 — Fix: /api/stems used the (unconfigured) R2 binding
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/song-version-management-wsz89v`
+**Status**: Completed
+
+**Summary**: The stem-maintenance backend listed/deleted via the `STEMS_BUCKET`
+R2 binding, which isn't reliably configured in Pages (presign deliberately uses
+R2 API credentials for this reason; `wrangler.toml` only stubs the binding to the
+wrong bucket for local dev). In production the listing returned 500, the uploader
+swallowed it, and "Replace <version>" tiles showed nothing on the server with no
+per-file delete. Rewrote `functions/api/stems.js` to talk to R2 over the S3 API
+with the same credentials presign uses (`R2_ACCOUNT_ID` / `R2_BUCKET_NAME` /
+`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`): ListObjectsV2 (delimiter '/' to keep
+versions/ out of the Original listing, continuation-token paging) for GET, and
+per-key DELETE (404 = already gone) for the files[]/version/song delete paths.
+Now works in exactly the environments presign works, no extra binding needed.
+
+**Changes**: `functions/api/stems.js` — S3-API list/delete via aws4fetch; clearer
+500 (missing creds) / 502 (R2 error) responses. No frontend change.
+
+**Build/verify**: `npm test` 66/66; `npm run build` clean.
+
 ### 2026-06-12 — Expand audio unit-test coverage
 
 **Agent**: Claude
