@@ -158,9 +158,10 @@ Theme is set via `[data-theme="dark"]` attribute on the root element. The app de
 
 ## Database Rules
 
-- Query only the `songs` table
+- Query only the `songs` and `song_versions` tables
 - Always filter: `has_stems = true` and `is_deleted = false` for public reads
 - `stem_slug` can be null — fall back to `slug` when resolving R2 paths
+- Versions: a song with no `song_versions` rows has a single implicit "Original" version at the legacy R2 path (`tracks/<stem_slug>/`); named versions live under `tracks/<stem_slug>/versions/<version_slug>/`. At most one row per song has `is_default = true`; none flagged means Original is the default. Use the helpers in `src/lib/versions.js` — don't re-derive paths or default logic
 - Role lives in `public.users.role`; read it (self-select is allowed by RLS), never write it from here
 - RLS is enforced by Supabase — trust it; don't re-implement in the client
 

@@ -82,9 +82,9 @@ export async function onRequestPost(context) {
   }
 
   // ─── 3. Parse and validate request body ───────────────────────────────────
-  let slug, track, ext
+  let slug, track, ext, version
   try {
-    ;({ slug, track, ext } = await request.json())
+    ;({ slug, track, ext, version } = await request.json())
   } catch {
     return new Response('Bad Request: invalid JSON', { status: 400, headers: corsHeaders })
   }
@@ -98,6 +98,14 @@ export async function onRequestPost(context) {
   if (!VALID_EXTS.has(ext)) {
     return new Response('Bad Request: invalid extension', { status: 400, headers: corsHeaders })
   }
+  // `version` selects a named stem set under tracks/<slug>/versions/<version>/.
+  // Absent or 'original' targets the legacy path ('original' is accepted so the
+  // uploader can overwrite Original stems through one uniform code path).
+  if (version == null || version === '' || version === 'original') {
+    version = null
+  } else if (typeof version !== 'string' || !/^[a-z0-9_-]{1,64}$/.test(version)) {
+    return new Response('Bad Request: invalid version', { status: 400, headers: corsHeaders })
+  }
 
   // ─── 4. Generate presigned PUT URL for R2 ─────────────────────────────────
   const r2 = new AwsClient({
@@ -107,7 +115,9 @@ export async function onRequestPost(context) {
     service:         's3',
   })
 
-  const key       = `tracks/${slug}/${track}.${ext}`
+  const key = version
+    ? `tracks/${slug}/versions/${version}/${track}.${ext}`
+    : `tracks/${slug}/${track}.${ext}`
   const bucketUrl = `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET_NAME}/${key}`
 
   // Presign as query params. aws4fetch fills X-Amz-Date itself (correct compact

@@ -554,6 +554,53 @@ diagnostic page; consider SW-precache tuning for the streaming chunk.
 
 ---
 
+### 2026-06-12 — Song versions: multiple named stem sets per song
+
+**Agent**: Claude
+**Branch**: `claude/song-version-management-wsz89v`
+**Status**: Completed
+
+**Summary**: A song can now have multiple named stem versions (e.g. AGMC2026 / HQ / GA2024).
+New `song_versions` table (FK → `songs.slug`); a song with no rows keeps a single implicit
+"Original" version at the legacy R2 path — zero data/R2 migration, single-version songs are
+byte-identical to before. Named versions upload to `tracks/<stem_slug>/versions/<version_slug>/`.
+URLs: `/song/<slug>` opens the editor-set default (partial unique index allows ≤1
+`is_default` row; none = Original), `?v=<version_slug>` or `?v=original` addresses a version
+explicitly. The picker shows a chevron + dropdown on multi-version cards; the mixer header
+gets a version chip whose menu switches versions via router navigation (pushState →
+dispose/remount, so engine cleanup is the existing proven path). The uploader, when a
+selected song already has stems, shows a version block: add a new named version
+(free-form label, slugified), replace Original or any existing version, plus a
+"Make default" affordance.
+
+**Changes**:
+- `supabase/migrations/20260612000000_song_versions.sql` — table, ≤1-default partial unique
+  index, reserved-slug CHECK, RLS (public read gated on parent song visibility; editor+ write
+  via `public.users.role`).
+- `src/lib/versions.js` (+ `versions.test.js`) — `versionFolder`, `buildVersionList`,
+  `resolveActiveVersion`, `versionUrl`, fetchers, `setDefaultVersion`.
+- `functions/api/presign.js` — optional `version` body param (`[a-z0-9_-]{1,64}`;
+  absent/`original` = legacy key).
+- `src/main.js` — `?v=` route parsing; mixer cache key is now slug+version.
+- `src/ui/mixer.js` — version resolution (unknown `?v=` canonicalized via replaceState),
+  stems probed from the version folder (`stems.js` unchanged — it never encoded the folder),
+  header switcher, versioned Media Session title.
+- `src/ui/songPicker.js` — one grouped `song_versions` query; split card row with version menu
+  (single-version cards render exactly as before).
+- `src/ui/uploadSong.js` — version block, slug-collision flow now lands in the version chooser
+  instead of blind overwrite, `song_versions` upsert after upload. Also fixed a latent bug:
+  select-mode uploads now target `selectedSong.stem_slug || slug` (previously always `slug`,
+  which would have forked snake_case-folder songs into a second folder and clobbered
+  `stem_slug`); `stem_slug` is only written on a song's first stems.
+- `src/styles/main.css` / `components.css` — picker + mixer dropdowns (gc-user-dropdown
+  recipe), upload version block. `src/ui/icons.js` — chevron-down.
+- Docs: `CLAUDE.md` DB rules, `CODEX_CONTEXT.md` schema/R2/routing/presign sections.
+
+**Build/verify**: `npm test` 41/41 (engine + new version helpers); `npm run build` clean.
+Migration needs to be applied to Supabase (SQL editor or CLI) before deploying.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

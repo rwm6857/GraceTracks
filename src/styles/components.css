@@ -1075,6 +1075,68 @@
   color: var(--gc-text-secondary);
 }
 
+/* Version block — choose where stems go when the song already has some */
+.gt-upload__version-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 480px;
+  margin-top: var(--space-3);
+}
+
+.gt-upload__versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.gt-upload__version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--gc-control-h);
+  padding: 0 var(--space-3);
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-sm);
+}
+
+.gt-upload__version-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--gc-font-sub);
+  color: var(--gc-text);
+  cursor: pointer;
+}
+.gt-upload__version-pick input[type="radio"] {
+  accent-color: var(--gc-primary);
+}
+
+.gt-upload__version-badge {
+  font-size: var(--gc-font-cap);
+  font-weight: 600;
+  color: var(--gc-primary);
+  background: var(--gc-surface-3);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+}
+
+.gt-upload__version-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-5);
+}
+
+.gt-upload__version-hint {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-tertiary);
+}
+
 /* "Create a new song" toggle */
 .gt-upload__newlink {
   display: inline-block;

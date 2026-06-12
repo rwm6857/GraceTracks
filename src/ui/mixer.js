@@ -6,6 +6,13 @@ import { Metronome } from '../audio/metronome.js'
 import { Meters } from '../audio/meters.js'
 import { createTransport } from './transport.js'
 import { icon, channelIcon } from './icons.js'
+import {
+  fetchSongVersions,
+  buildVersionList,
+  resolveActiveVersion,
+  versionFolder,
+  versionUrl,
+} from '../lib/versions.js'
 
 const CHANNEL_COLORS = {
   drums:   '#ef4444',
@@ -36,10 +43,12 @@ const CHANNEL_LABELS = {
 }
 
 /**
- * Renders the mixer page for a given song slug.
+ * Renders the mixer page for a given song slug (and optional stem version).
  * Looks up song in Supabase, probes each stem URL, loads available stems.
+ * @param {string|null} requestedVersion - version_slug from ?v=, 'original'
+ *   for the legacy stems, or null for the song's default version
  */
-export async function renderMixer(container, slug) {
+export async function renderMixer(container, slug, requestedVersion = null) {
   container.innerHTML = `
     <div class="gt-mixer-loading">
       <div class="gt-spinner" aria-hidden="true"></div>
@@ -66,7 +75,20 @@ export async function renderMixer(container, slug) {
   }
 
   const song = songs[0]
-  const stemSlug = song.stem_slug || song.slug
+
+  // — Resolve stem version (no rows = single implicit "Original" version)
+  const versionRows = await fetchSongVersions(slug)
+  const versionList = buildVersionList(versionRows)
+  const activeVersion = resolveActiveVersion(versionList, requestedVersion)
+  const defaultVersionSlug = versionList.find(v => v.isDefault)?.versionSlug ?? null
+  const unknownRequest = requestedVersion && requestedVersion !== 'original' &&
+    !versionList.some(v => v.versionSlug === requestedVersion)
+  if (unknownRequest) {
+    // Unknown ?v= fell back to the default — canonicalize the URL silently.
+    history.replaceState({}, '', versionUrl(slug, activeVersion.versionSlug, defaultVersionSlug))
+  }
+
+  const stemSlug = versionFolder(song.stem_slug || song.slug, activeVersion.versionSlug)
   const r2Base = import.meta.env.VITE_R2_PUBLIC_URL
 
   // — Engine setup (phase-lock by default; ?engine=stream opts into the streaming engine)
@@ -137,7 +159,7 @@ export async function renderMixer(container, slug) {
   // — Media Session (lock screen / notification controls)
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.title,
+      title: activeVersion.versionSlug ? `${song.title} (${activeVersion.label})` : song.title,
       artist: song.artist ?? '',
       artwork: [
         { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -187,10 +209,29 @@ export async function renderMixer(container, slug) {
   // Header
   const header = document.createElement('div')
   header.className = 'gt-mixer-header'
+  const hasVersions = versionRows.length > 0
   header.innerHTML = `
     <div class="gt-mixer-header__info">
       <h2 class="gt-mixer-header__title">${escHtml(song.title)}</h2>
       ${song.artist ? `<p class="gt-mixer-header__artist">${escHtml(song.artist)}</p>` : ''}
+      ${hasVersions ? `
+        <div class="gt-mixer-version">
+          <button type="button" class="gt-mixer-version__btn" aria-haspopup="menu" aria-expanded="false"
+            aria-label="Switch version — currently ${escHtml(activeVersion.label)}">
+            <span class="gt-mixer-version__label">${escHtml(activeVersion.label)}</span>
+            ${icon('chevron-down')}
+          </button>
+          <div class="gt-mixer-version__menu" role="menu" hidden>
+            ${versionList.map(v => `
+              <button type="button" role="menuitem" data-v="${v.versionSlug ?? ''}"
+                class="gt-mixer-version__item${v === activeVersion ? ' is-active' : ''}"
+                ${v === activeVersion ? 'aria-current="true"' : ''}>
+                ${escHtml(v.label)}${v.isDefault ? '<span class="gt-mixer-version__default">default</span>' : ''}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
     </div>
     <div class="gt-mixer-header__actions">
       <a
@@ -213,6 +254,37 @@ export async function renderMixer(container, slug) {
     history.pushState({}, '', '/')
     window.dispatchEvent(new PopStateEvent('popstate'))
   })
+
+  // Version switcher — selecting a version navigates (pushState + popstate),
+  // which remounts the mixer through main.js and disposes this engine cleanly.
+  let removeVersionListeners = () => {}
+  if (hasVersions) {
+    const verWrap = header.querySelector('.gt-mixer-version')
+    const verBtn  = header.querySelector('.gt-mixer-version__btn')
+    const verMenu = header.querySelector('.gt-mixer-version__menu')
+    const setOpen = (open) => {
+      verMenu.hidden = !open
+      verBtn.setAttribute('aria-expanded', String(open))
+    }
+    verBtn.addEventListener('click', () => setOpen(verMenu.hidden))
+    verMenu.querySelectorAll('.gt-mixer-version__item').forEach(item => {
+      item.addEventListener('click', () => {
+        setOpen(false)
+        const target = versionList.find(v => (v.versionSlug ?? '') === item.dataset.v)
+        if (!target || target === activeVersion) return
+        history.pushState({}, '', versionUrl(slug, target.versionSlug, defaultVersionSlug))
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      })
+    })
+    const onDocClick = (e) => { if (!verWrap.contains(e.target)) setOpen(false) }
+    const onMenuKeyDown = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('click', onDocClick)
+    document.addEventListener('keydown', onMenuKeyDown)
+    removeVersionListeners = () => {
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('keydown', onMenuKeyDown)
+    }
+  }
 
   // Count-in overlay
   const countInOverlay = document.createElement('div')
@@ -413,6 +485,7 @@ export async function renderMixer(container, slug) {
     metro.stop()
     metersInst.stop()
     destroyTransport()
+    removeVersionListeners()
     document.removeEventListener('visibilitychange', onVisibilityChange)
     window.removeEventListener('pageshow', onPageShow)
     if ('mediaSession' in navigator) {

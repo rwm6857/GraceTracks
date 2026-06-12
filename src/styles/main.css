@@ -155,6 +155,78 @@ body {
   color: var(--gc-text-secondary);
 }
 
+/* Version switcher — songs with multiple stem versions get a chevron button
+   next to the card that opens a dropdown menu (gc-user-dropdown recipe). */
+.gt-picker__song-row {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+}
+.gt-picker__song-row .gt-picker__song-btn {
+  flex: 1;
+  min-width: 0;
+}
+.gt-picker__version-btn {
+  flex: none;
+  width: var(--gc-control-h-mobile);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-sm);
+  color: var(--gc-text-secondary);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick), border-color var(--gc-dur-quick);
+}
+.gt-picker__version-btn:hover,
+.gt-picker__version-btn[aria-expanded="true"] {
+  background: var(--gc-surface-2);
+  border-color: var(--gc-primary);
+  color: var(--gc-primary);
+}
+.gt-picker__version-btn:focus-visible {
+  outline: var(--gc-focus-size) solid var(--gc-focus);
+  outline-offset: var(--gc-focus-offset);
+}
+.gt-picker__version-menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 200px;
+  padding: var(--space-1);
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-md);
+  box-shadow: var(--gc-shadow-2);
+  z-index: 50;
+  animation: gc-dropdown-in var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-picker__version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-sub);
+  color: var(--gc-text);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-picker__version-item:hover {
+  background: var(--gc-surface-2);
+}
+.gt-picker__version-default {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-tertiary);
+}
+
 .gt-picker__loading,
 .gt-picker__empty,
 .gt-picker__error {
@@ -195,6 +267,83 @@ body {
 .gt-mixer-header__artist {
   font-size: var(--gc-font-sub);
   color: var(--gc-text-secondary);
+}
+
+/* Version switcher chip — shown under the title when the song has versions */
+.gt-mixer-version {
+  position: relative;
+  margin-top: var(--space-1);
+  align-self: flex-start;
+}
+.gt-mixer-version__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-cap);
+  font-weight: 600;
+  color: var(--gc-text-secondary);
+  background: var(--gc-surface-2);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick), border-color var(--gc-dur-quick);
+}
+.gt-mixer-version__btn:hover,
+.gt-mixer-version__btn[aria-expanded="true"] {
+  background: var(--gc-surface-3);
+  border-color: var(--gc-primary);
+  color: var(--gc-primary);
+}
+.gt-mixer-version__btn:focus-visible {
+  outline: var(--gc-focus-size) solid var(--gc-focus);
+  outline-offset: var(--gc-focus-offset);
+}
+.gt-mixer-version__btn svg {
+  width: 14px;
+  height: 14px;
+}
+.gt-mixer-version__menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  min-width: 200px;
+  padding: var(--space-1);
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-md);
+  box-shadow: var(--gc-shadow-2);
+  z-index: 100;
+  animation: gc-dropdown-in var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-mixer-version__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--gc-font-family);
+  font-size: var(--gc-font-sub);
+  color: var(--gc-text);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-mixer-version__item:hover {
+  background: var(--gc-surface-2);
+}
+.gt-mixer-version__item.is-active {
+  background: var(--gc-surface-3);
+  color: var(--gc-primary);
+}
+.gt-mixer-version__default {
+  font-size: var(--gc-font-cap);
+  color: var(--gc-text-tertiary);
 }
 
 .gt-mixer-header__actions {

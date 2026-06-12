@@ -32,6 +32,7 @@ import {
   Moon,
   LogOut,
   ChevronRight,
+  ChevronDown,
   User,
 } from 'lucide'
 
@@ -67,6 +68,7 @@ const ICONS = {
   moon: Moon,
   'log-out': LogOut,
   'chevron-right': ChevronRight,
+  'chevron-down': ChevronDown,
   user: User,
 }
 

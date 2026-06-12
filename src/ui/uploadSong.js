@@ -3,6 +3,13 @@ import { getSession, isEditorPlus } from '../lib/auth.js'
 import { searchSongs } from '../lib/songSearch.js'
 import { isM4aEncodeSupported, wavFileToM4a } from '../audio/encodeM4a.js'
 import { icon, channelIcon } from './icons.js'
+import {
+  VERSION_RE,
+  buildVersionList,
+  fetchSongVersions,
+  setDefaultVersion,
+  versionUrl,
+} from '../lib/versions.js'
 
 const TRACKS = [
   { id: 'drums',   label: 'Drums' },
@@ -33,11 +40,19 @@ let tileState = {}
 let selectedSong = null
 // 'select' (attach to an existing song) | 'new' (create a brand-new song row)
 let mode = 'select'
+// Where the stems go when the selected song already has some:
+// { kind: 'new', label } adds a named version; { kind: 'replace', versionSlug }
+// overwrites an existing one (versionSlug null = the legacy Original stems).
+let versionChoice = { kind: 'replace', versionSlug: null }
+// song_versions rows for the selected song
+let songVersions = []
 
 function resetState() {
   tileState = Object.fromEntries(TRACKS.map(t => [t.id, { file: null, status: 'empty', error: '' }]))
   selectedSong = null
   mode = 'select'
+  versionChoice = { kind: 'replace', versionSlug: null }
+  songVersions = []
 }
 
 function slugify(str) {
@@ -112,6 +127,8 @@ export async function renderUploadSong(container, user) {
           </div>
           <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm" id="selected-change">Change</button>
         </div>
+
+        <div class="gt-upload__version-block" id="version-block" hidden></div>
 
         <button type="button" class="gt-upload__newlink" id="toggle-new">
           Can’t find it? Create a new song
@@ -190,6 +207,7 @@ export async function renderUploadSong(container, user) {
   const keyEl     = container.querySelector('#uf-key')
   const timesigEl = container.querySelector('#uf-timesig')
 
+  const versionBlock = container.querySelector('#version-block')
   const stemsGrid = container.querySelector('#stems-grid')
   const submitBtn = container.querySelector('#upload-submit')
   const formError = container.querySelector('#upload-form-error')
@@ -263,7 +281,31 @@ export async function renderUploadSong(container, user) {
     newForm.hidden = true
     resultsEl.hidden = true
     formError.hidden = true
+
+    // Songs that already have stems pick a version target; first-time uploads
+    // go straight to the legacy path as the implicit Original.
+    songVersions = []
+    versionChoice = song.has_stems
+      ? { kind: 'new', label: '' }
+      : { kind: 'replace', versionSlug: null }
+    versionBlock.hidden = !song.has_stems
+    if (song.has_stems) {
+      versionBlock.innerHTML = `<p class="gt-upload__hint">Loading versions…</p>`
+      fetchSongVersions(song.slug).then(rows => {
+        if (selectedSong?.slug !== song.slug) return // selection changed meanwhile
+        songVersions = rows
+        renderVersionBlock()
+        updateSubmitState()
+      })
+    }
     updateSubmitState()
+  }
+
+  function clearVersionBlock() {
+    songVersions = []
+    versionChoice = { kind: 'replace', versionSlug: null }
+    versionBlock.hidden = true
+    versionBlock.innerHTML = ''
   }
 
   changeBtn.addEventListener('click', () => {
@@ -273,6 +315,7 @@ export async function renderUploadSong(container, user) {
     toggleNew.hidden = false
     searchInput.value = ''
     renderResults([])
+    clearVersionBlock()
     searchInput.focus()
     updateSubmitState()
   })
@@ -284,9 +327,88 @@ export async function renderUploadSong(container, user) {
     searchWrap.hidden = true
     toggleNew.hidden = true
     newForm.hidden = false
+    clearVersionBlock()
     titleEl.focus()
     updateSubmitState()
   })
+
+  // ─── Version block (existing songs with stems) ───────────────────────────────
+  function renderVersionBlock() {
+    if (!selectedSong?.has_stems) { clearVersionBlock(); return }
+    const versionList = buildVersionList(songVersions)
+    const isNew = versionChoice.kind === 'new'
+
+    versionBlock.innerHTML = `
+      <span class="gt-upload__label">Version</span>
+      <div class="gt-upload__versions" role="radiogroup" aria-label="Version target">
+        <div class="gt-upload__version-row">
+          <label class="gt-upload__version-pick">
+            <input type="radio" name="version-choice" value="new" ${isNew ? 'checked' : ''} />
+            <span>Add new version</span>
+          </label>
+        </div>
+        <div class="gt-upload__version-label-wrap" ${isNew ? '' : 'hidden'}>
+          <input id="version-label" class="gt-upload__input" type="text" placeholder="AGMC2026"
+            aria-label="New version name" value="${escHtml(versionChoice.label ?? '')}" />
+          <span class="gt-upload__version-hint" id="version-hint"></span>
+        </div>
+        ${versionList.map(v => `
+          <div class="gt-upload__version-row">
+            <label class="gt-upload__version-pick">
+              <input type="radio" name="version-choice" value="replace:${v.versionSlug ?? 'original'}"
+                ${!isNew && (versionChoice.versionSlug ?? null) === v.versionSlug ? 'checked' : ''} />
+              <span>Replace ${escHtml(v.label)}</span>
+            </label>
+            ${v.isDefault
+              ? '<span class="gt-upload__version-badge">default</span>'
+              : `<button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__version-make-default"
+                   data-v="${v.versionSlug ?? ''}">Make default</button>`}
+          </div>
+        `).join('')}
+      </div>
+    `
+
+    const labelInput = versionBlock.querySelector('#version-label')
+    const hintEl = versionBlock.querySelector('#version-hint')
+    const updateHint = () => {
+      const vs = slugify(labelInput.value)
+      hintEl.textContent = vs ? `Saved as “${vs}”` : ''
+    }
+    updateHint()
+    labelInput.addEventListener('input', () => {
+      versionChoice.label = labelInput.value
+      updateHint()
+      updateSubmitState()
+    })
+
+    versionBlock.querySelectorAll('input[name="version-choice"]').forEach(input => {
+      input.addEventListener('change', () => {
+        if (input.value === 'new') {
+          versionChoice = { kind: 'new', label: versionChoice.label ?? '' }
+        } else {
+          const v = input.value.slice('replace:'.length)
+          versionChoice = { kind: 'replace', versionSlug: v === 'original' ? null : v }
+        }
+        renderVersionBlock() // shows/hides the new-version name input
+        updateSubmitState()
+      })
+    })
+
+    versionBlock.querySelectorAll('.gt-upload__version-make-default').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true
+        const err = await setDefaultVersion(selectedSong.slug, btn.dataset.v || null)
+        if (err) {
+          formError.textContent = `Could not set default: ${err.message}`
+          formError.hidden = false
+          btn.disabled = false
+          return
+        }
+        songVersions = await fetchSongVersions(selectedSong.slug)
+        renderVersionBlock()
+      })
+    })
+  }
 
   // ─── New-song slug auto-derive ───────────────────────────────────────────────
   let slugManuallyEdited = false
@@ -306,7 +428,10 @@ export async function renderUploadSong(container, user) {
   }
   function updateSubmitState() {
     const hasStem = TRACKS.some(t => tileState[t.id].file)
-    submitBtn.disabled = !(songIsChosen() && hasStem)
+    // Adding a new version requires a name that survives slugification.
+    const needsLabel = mode === 'select' && selectedSong?.has_stems && versionChoice.kind === 'new'
+    const versionOk = !needsLabel || Boolean(slugify(versionChoice.label ?? ''))
+    submitBtn.disabled = !(songIsChosen() && hasStem && versionOk)
   }
 
   // ─── Stem tiles ──────────────────────────────────────────────────────────────
@@ -425,7 +550,9 @@ export async function renderUploadSong(container, user) {
       slug     = selectedSong.slug
       title    = selectedSong.title
       artist   = selectedSong.artist ?? null
-      stemSlug = selectedSong.slug
+      // Keep uploading into the song's existing R2 folder — old hand-uploaded
+      // folders (snake_case stem_slug) must not fork into a second folder.
+      stemSlug = selectedSong.stem_slug || selectedSong.slug
       tempo = key = timeSig = undefined // leave existing row metadata untouched
     } else {
       title   = titleEl.value.trim()
@@ -454,7 +581,9 @@ export async function renderUploadSong(container, user) {
       return
     }
 
-    // For a brand-new slug that collides with an existing row, confirm overwrite.
+    // A brand-new slug that collides with an existing song becomes a version
+    // decision: switch into select mode for that song and let the version
+    // block (preselected "Add new version") drive the choice.
     if (mode === 'new') {
       const { data: existing } = await supabase
         .from('songs')
@@ -462,10 +591,41 @@ export async function renderUploadSong(container, user) {
         .eq('slug', slug)
         .limit(1)
       if (existing?.length > 0) {
+        const row = catalog.find(s => s.slug === slug)
+        if (row) {
+          selectSong(row)
+          formError.textContent = `“${row.title}” already exists — choose below whether these stems become a new version or replace existing ones, then upload again.`
+          formError.hidden = false
+          return
+        }
+        // Not in the catalog (e.g. a soft-deleted row) — keep the explicit confirm.
         const confirmed = window.confirm(
           `A song with slug "${slug}" already exists. Overwrite it?`
         )
         if (!confirmed) return
+      }
+    }
+
+    // Resolve the target version. Only songs that already have stems pick one;
+    // everything else lands on the legacy path as the implicit Original.
+    let versionSlug = null
+    let versionLabel = null
+    if (mode === 'select' && selectedSong?.has_stems) {
+      if (versionChoice.kind === 'new') {
+        versionLabel = versionChoice.label.trim()
+        versionSlug = slugify(versionLabel)
+        if (!versionSlug || !VERSION_RE.test(versionSlug) || versionSlug === 'original') {
+          formError.textContent = 'Enter a version name (e.g. AGMC2026). “Original” is reserved.'
+          formError.hidden = false
+          return
+        }
+        if (songVersions.some(r => r.version_slug === versionSlug)) {
+          formError.textContent = `Version “${versionLabel}” already exists — pick its “Replace” option instead.`
+          formError.hidden = false
+          return
+        }
+      } else {
+        versionSlug = versionChoice.versionSlug
       }
     }
 
@@ -512,7 +672,12 @@ export async function renderUploadSong(container, user) {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ slug, track: track.id, ext }),
+          body: JSON.stringify({
+            slug: stemSlug, // R2 folder, not necessarily the song slug
+            track: track.id,
+            ext,
+            ...(versionSlug ? { version: versionSlug } : {}),
+          }),
         })
 
         if (!presignRes.ok) {
@@ -563,10 +728,13 @@ export async function renderUploadSong(container, user) {
     let dbError
     if (mode === 'select') {
       // Attach stems to an existing song — touch only stem-related fields so we
-      // don't clobber GraceChords metadata.
+      // don't clobber GraceChords metadata. stem_slug is only set the first time
+      // a song gets stems; later uploads must not move its R2 folder.
+      const update = { has_stems: true, gracetracks_url: gracetracksUrl }
+      if (!selectedSong.has_stems) update.stem_slug = stemSlug
       ;({ error: dbError } = await supabase
         .from('songs')
-        .update({ has_stems: true, stem_slug: stemSlug, gracetracks_url: gracetracksUrl })
+        .update(update)
         .eq('slug', slug))
     } else {
       ;({ error: dbError } = await supabase
@@ -585,6 +753,19 @@ export async function renderUploadSong(container, user) {
         }, { onConflict: 'slug' }))
     }
 
+    // Record the new version (upsert so retrying after a partial stem failure
+    // is idempotent). Original stays default until the editor flips it.
+    if (!dbError && versionLabel) {
+      ;({ error: dbError } = await supabase
+        .from('song_versions')
+        .upsert({
+          song_slug: slug,
+          version_slug: versionSlug,
+          label: versionLabel,
+          is_default: false,
+        }, { onConflict: 'song_slug,version_slug' }))
+    }
+
     if (dbError) {
       formError.textContent = `Database error: ${dbError.message}`
       formError.hidden = false
@@ -593,13 +774,17 @@ export async function renderUploadSong(container, user) {
       return
     }
 
-    // Success
+    // Success — link straight to the uploaded version
+    const defaultVersionSlug = songVersions.find(r => r.is_default)?.version_slug ?? null
+    const mixerUrl = mode === 'select' && selectedSong?.has_stems
+      ? versionUrl(slug, versionSlug, defaultVersionSlug)
+      : `/song/${slug}`
     submitBtn.hidden = true
     successEl.hidden = false
-    openBtn.href = `/song/${slug}`
+    openBtn.href = mixerUrl
     openBtn.addEventListener('click', (e) => {
       e.preventDefault()
-      history.pushState({}, '', `/song/${slug}`)
+      history.pushState({}, '', mixerUrl)
       window.dispatchEvent(new PopStateEvent('popstate'))
     })
   })
