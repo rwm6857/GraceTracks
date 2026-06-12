@@ -576,6 +576,97 @@ diagnostic page; consider SW-precache tuning for the streaming chunk.
 
 ---
 
+### 2026-06-12 — Song versions: multiple named stem sets per song
+
+**Agent**: Claude
+**Branch**: `claude/song-version-management-wsz89v`
+**Status**: Completed
+
+**Summary**: A song can now have multiple named stem versions (e.g. AGMC2026 / HQ / GA2024).
+New `song_versions` table (FK → `songs.slug`); a song with no rows keeps a single implicit
+"Original" version at the legacy R2 path — zero data/R2 migration, single-version songs are
+byte-identical to before. Named versions upload to `tracks/<stem_slug>/versions/<version_slug>/`.
+URLs: `/song/<slug>` opens the editor-set default (partial unique index allows ≤1
+`is_default` row; none = Original), `?v=<version_slug>` or `?v=original` addresses a version
+explicitly. The picker shows a chevron + dropdown on multi-version cards; the mixer header
+gets a version chip whose menu switches versions via router navigation (pushState →
+dispose/remount, so engine cleanup is the existing proven path). The uploader, when a
+selected song already has stems, shows a version block: add a new named version
+(free-form label, slugified), replace Original or any existing version, plus a
+"Make default" affordance.
+
+**Changes**:
+- `supabase/migrations/20260612000000_song_versions.sql` — table, ≤1-default partial unique
+  index, reserved-slug CHECK, RLS (public read gated on parent song visibility; editor+ write
+  via `public.users.role`).
+- `src/lib/versions.js` (+ `versions.test.js`) — `versionFolder`, `buildVersionList`,
+  `resolveActiveVersion`, `versionUrl`, fetchers, `setDefaultVersion`.
+- `functions/api/presign.js` — optional `version` body param (`[a-z0-9_-]{1,64}`;
+  absent/`original` = legacy key).
+- `src/main.js` — `?v=` route parsing; mixer cache key is now slug+version.
+- `src/ui/mixer.js` — version resolution (unknown `?v=` canonicalized via replaceState),
+  stems probed from the version folder (`stems.js` unchanged — it never encoded the folder),
+  header switcher, versioned Media Session title.
+- `src/ui/songPicker.js` — one grouped `song_versions` query; split card row with version menu
+  (single-version cards render exactly as before).
+- `src/ui/uploadSong.js` — version block, slug-collision flow now lands in the version chooser
+  instead of blind overwrite, `song_versions` upsert after upload. Also fixed a latent bug:
+  select-mode uploads now target `selectedSong.stem_slug || slug` (previously always `slug`,
+  which would have forked snake_case-folder songs into a second folder and clobbered
+  `stem_slug`); `stem_slug` is only written on a song's first stems.
+- `src/styles/main.css` / `components.css` — picker + mixer dropdowns (gc-user-dropdown
+  recipe), upload version block. `src/ui/icons.js` — chevron-down.
+- Docs: `CLAUDE.md` DB rules, `CODEX_CONTEXT.md` schema/R2/routing/presign sections.
+
+**Build/verify**: `npm test` 41/41 (engine + new version helpers); `npm run build` clean.
+Migration needs to be applied to Supabase (SQL editor or CLI) before deploying.
+
+---
+
+### 2026-06-12 — Stem maintenance: existing-stem display, per-stem delete, version/song deletion
+
+**Agent**: Claude (claude-fable-5)
+**Branch**: `claude/song-version-management-wsz89v`
+**Status**: Completed
+
+**Summary**: Maintenance features for the upload page. Targeting "Replace <version>"
+now lists what's already in that R2 folder: populated tiles show the server filename
+with a trash button (per-stem delete), empty tiles accept retroactive uploads into a
+song that already `has_stems`. Named versions get a per-row delete, and a song-level
+"Delete all stems" wipes every stem file + `song_versions` row and flips
+`has_stems = false` — the GraceChords `songs` row itself is untouched. All R2 key
+operations go through a new `/api/stems` Pages Function using the `STEMS_BUCKET`
+binding (no binary data proxied; presigned URLs remain upload-only).
+
+**Changes**:
+- `functions/api/stems.js` (new) — editor-gated `GET` (list one version folder,
+  delimiter keeps `versions/` out of the Original listing) and `DELETE` (explicit
+  `files[]`, `scope: 'version'` wipe, `scope: 'song'` recursive wipe with re-list
+  batching). Requires the `STEMS_BUCKET` R2 binding in Pages settings (already
+  stubbed in `wrangler.toml`).
+- `functions/api/_lib.js` (new) — shared CORS + JWT/role gate extracted from
+  `presign.js`; `presign.js` refactored to use it (behavior unchanged).
+- `src/lib/stemsApi.js` (new) — client wrappers (`listStemFiles`, `deleteStemFiles`,
+  `deleteVersionStems`, `deleteSongStems`).
+- `src/audio/stems.js` — exported `STEM_IDS`/`STEM_ALIASES`, added `trackIdForFile`
+  reverse-alias lookup (maps `drum.m4a`, `2nd keys.wav` → canonical tile).
+- `src/ui/uploadSong.js` — existing-file tile state fetched per replace target
+  (seq-guarded against stale responses), trash-with-confirm per tile, version-row
+  delete + "Delete all stems" danger button. Replacing a stem now also removes stale
+  siblings (old extension/alias names) that would shadow the new file in the mixer's
+  m4a-first alias probing. Deleting all stems keeps `stem_slug` so re-uploads land in
+  the same folder; defaults revert to Original automatically when a flagged version
+  row is deleted.
+- `src/ui/icons.js` — trash (Lucide Trash2). `src/styles/components.css` — existing/
+  deleting tile states, version action cluster, danger row.
+- `src/audio/stems.test.js` (new) — `trackIdForFile` cases.
+
+**Build/verify**: `npm test` 45/45; `npm run build` clean. No new migration —
+`song_versions` editor policy is `FOR ALL` (delete covered) and `songs` editor
+policy already permits the `has_stems`/`gracetracks_url` reset.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

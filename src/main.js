@@ -6,6 +6,7 @@ import { renderRegisterSong } from './ui/registerSong.js'
 import { createNavbar } from './ui/navbar.js'
 import { initTheme } from './lib/theme.js'
 import { getUser, onAuthStateChange } from './lib/auth.js'
+import { VERSION_RE } from './lib/versions.js'
 
 const app = document.getElementById('app')
 
@@ -23,12 +24,16 @@ function getRoute() {
   if (path === '/upload') return { view: 'upload' }
   if (path === '/register') return { view: 'register' }
   const m = path.match(/^\/song\/(.+)$/)
-  if (m) return { view: 'mixer', slug: m[1] }
+  if (m) {
+    // ?v=<version_slug> selects a stem version; bare URL = the song's default.
+    const v = new URLSearchParams(window.location.search).get('v')
+    return { view: 'mixer', slug: m[1], version: v && VERSION_RE.test(v) ? v : null }
+  }
   return { view: 'picker' }
 }
 
 let currentView   = null
-let _mixerSlug    = null
+let _mixerKey     = null
 let _mixerEl      = null
 let _mixerCleanup = null
 let _pickerEl     = null
@@ -38,7 +43,7 @@ let _currentUser  = null
 
 async function render() {
   const route = getRoute()
-  const key = route.view === 'mixer' ? `mixer:${route.slug}` : route.view
+  const key = route.view === 'mixer' ? `mixer:${route.slug}|${route.version ?? ''}` : route.view
   _navbar?.setActive(window.location.pathname)
   if (key === currentView) return
   currentView = key
@@ -50,23 +55,23 @@ async function render() {
   if (_registerEl) _registerEl.hidden = true
 
   if (route.view === 'mixer') {
-    // Same song already loaded — just show
-    if (_mixerSlug === route.slug && _mixerEl) {
+    // Same song + version already loaded — just show
+    if (_mixerKey === key && _mixerEl) {
       _mixerEl.hidden = false
       return
     }
 
-    // Different song — dispose old session
+    // Different song or version — dispose old session
     if (_mixerCleanup) { _mixerCleanup(); _mixerCleanup = null }
     if (_mixerEl)      { _mixerEl.remove(); _mixerEl = null }
-    _mixerSlug = null
+    _mixerKey = null
 
     _mixerEl = document.createElement('main')
     _mixerEl.id = 'gt-main'
     _mixerEl.className = 'gt-main'
     app.appendChild(_mixerEl)
-    _mixerSlug = route.slug
-    _mixerCleanup = await renderMixer(_mixerEl, route.slug) ?? (() => {})
+    _mixerKey = key
+    _mixerCleanup = await renderMixer(_mixerEl, route.slug, route.version) ?? (() => {})
 
   } else if (route.view === 'upload') {
     if (_uploadEl) {

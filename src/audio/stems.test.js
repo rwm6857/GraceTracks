@@ -1,16 +1,19 @@
 /**
- * resolveStemUrl unit tests
+ * stems.js unit tests
  *
- * Verifies the format-fallback and alias-probing order:
+ * resolveStemUrl — format-fallback and alias-probing order:
  *   - for each candidate id, .m4a is tried before .wav
  *   - the canonical id is tried before its aliases
  *   - the first 200 response wins (url + Response returned)
  *   - network errors on one candidate don't abort the search
  *   - null is returned (with a warning) when nothing resolves
+ *
+ * trackIdForFile — pure reverse-alias lookup used by the upload page's
+ * maintenance UI.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { resolveStemUrl } from './stems.js'
+import { resolveStemUrl, trackIdForFile } from './stems.js'
 
 const BASE = 'https://assets.example'
 const SLUG = 'song-slug'
@@ -73,5 +76,29 @@ describe('resolveStemUrl', () => {
     const res = await resolveStemUrl(BASE, SLUG, 'click')
     expect(res).toBeNull()
     expect(console.warn).toHaveBeenCalled()
+  })
+})
+
+describe('trackIdForFile', () => {
+  it('maps canonical filenames to their track id', () => {
+    expect(trackIdForFile('drums.m4a')).toBe('drums')
+    expect(trackIdForFile('click.wav')).toBe('click')
+  })
+
+  it('maps legacy alias filenames to the canonical id', () => {
+    expect(trackIdForFile('drum.m4a')).toBe('drums')
+    expect(trackIdForFile('percussion.wav')).toBe('perc')
+    expect(trackIdForFile('2nd keys.m4a')).toBe('synth')
+    expect(trackIdForFile('vocals.m4a')).toBe('vox')
+    expect(trackIdForFile('talkback.wav')).toBe('md')
+  })
+
+  it('is case-insensitive', () => {
+    expect(trackIdForFile('Drums.M4A')).toBe('drums')
+  })
+
+  it('returns null for unrecognized filenames', () => {
+    expect(trackIdForFile('mixdown.m4a')).toBeNull()
+    expect(trackIdForFile('readme.txt')).toBeNull()
   })
 })
