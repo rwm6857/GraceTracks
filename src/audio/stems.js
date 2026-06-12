@@ -21,12 +21,26 @@
  * @returns {Promise<{url: string, response: Response}|null>}
  */
 
-const STEM_ALIASES = {
+export const STEM_IDS = ['drums', 'perc', 'bass', 'elec', 'keys', 'synth', 'vox', 'strings', 'md', 'click', 'ambient']
+
+export const STEM_ALIASES = {
   drums: ['drum'],
   perc:  ['percussion'],
   synth: ['2nd', '2nd keys', '2nd-keys'],
   vox:   ['vocals', 'vocal'],
   md:    ['talkback', 'director', 'musicdirector'],
+}
+
+/**
+ * Reverse lookup for maintenance UIs: map an R2 filename (e.g. "drum.m4a",
+ * "2nd keys.wav") back to its canonical stem ID, or null if unrecognized.
+ */
+export function trackIdForFile(filename) {
+  const base = String(filename).replace(/\.[^.]+$/, '').toLowerCase()
+  for (const id of STEM_IDS) {
+    if (base === id || (STEM_ALIASES[id] ?? []).includes(base)) return id
+  }
+  return null
 }
 
 export async function resolveStemUrl(r2Base, stemSlug, stemId) {

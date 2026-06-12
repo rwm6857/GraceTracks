@@ -10,6 +10,13 @@ import {
   setDefaultVersion,
   versionUrl,
 } from '../lib/versions.js'
+import {
+  listStemFiles,
+  deleteStemFiles,
+  deleteVersionStems,
+  deleteSongStems,
+} from '../lib/stemsApi.js'
+import { trackIdForFile } from '../audio/stems.js'
 
 const TRACKS = [
   { id: 'drums',   label: 'Drums' },
@@ -46,6 +53,11 @@ let mode = 'select'
 let versionChoice = { kind: 'replace', versionSlug: null }
 // song_versions rows for the selected song
 let songVersions = []
+// Files already in the targeted R2 version folder, keyed by track id
+// (e.g. { drums: ['drums.m4a'] }). Only populated for "replace" targets.
+let existingFiles = {}
+// Bumped whenever the replace target changes so stale list responses are ignored.
+let existingSeq = 0
 
 function resetState() {
   tileState = Object.fromEntries(TRACKS.map(t => [t.id, { file: null, status: 'empty', error: '' }]))
@@ -53,6 +65,8 @@ function resetState() {
   mode = 'select'
   versionChoice = { kind: 'replace', versionSlug: null }
   songVersions = []
+  existingFiles = {}
+  existingSeq++
 }
 
 function slugify(str) {
@@ -298,6 +312,7 @@ export async function renderUploadSong(container, user) {
         updateSubmitState()
       })
     }
+    refreshExistingStems()
     updateSubmitState()
   }
 
@@ -308,6 +323,41 @@ export async function renderUploadSong(container, user) {
     versionBlock.innerHTML = ''
   }
 
+  // ─── Existing stems on the server (replace targets only) ─────────────────────
+  // The song's R2 folder (stem_slug survives a full stem deletion so re-uploads
+  // land back in the same folder).
+  function r2Folder() {
+    return selectedSong ? (selectedSong.stem_slug || selectedSong.slug) : null
+  }
+
+  function replaceTargetLabel() {
+    if (versionChoice.versionSlug == null) return 'Original'
+    return songVersions.find(r => r.version_slug === versionChoice.versionSlug)?.label
+      ?? versionChoice.versionSlug
+  }
+
+  // Refresh which files already sit in the targeted version folder, so tiles
+  // can show them (and offer per-stem deletion). Anything that isn't a
+  // replace target — new version, new song, no selection — just clears.
+  async function refreshExistingStems() {
+    const seq = ++existingSeq
+    existingFiles = {}
+    const isReplaceTarget = mode === 'select' && selectedSong?.has_stems && versionChoice.kind === 'replace'
+    TRACKS.forEach(renderTile)
+    if (!isReplaceTarget) return
+    try {
+      const names = await listStemFiles(r2Folder(), versionChoice.versionSlug)
+      if (seq !== existingSeq) return // target changed meanwhile
+      for (const name of names) {
+        const id = trackIdForFile(name)
+        if (id) (existingFiles[id] ??= []).push(name)
+      }
+      TRACKS.forEach(renderTile)
+    } catch (err) {
+      console.warn('[GraceTracks] could not list existing stems:', err)
+    }
+  }
+
   changeBtn.addEventListener('click', () => {
     selectedSong = null
     selectedEl.hidden = true
@@ -316,6 +366,7 @@ export async function renderUploadSong(container, user) {
     searchInput.value = ''
     renderResults([])
     clearVersionBlock()
+    refreshExistingStems()
     searchInput.focus()
     updateSubmitState()
   })
@@ -328,6 +379,7 @@ export async function renderUploadSong(container, user) {
     toggleNew.hidden = true
     newForm.hidden = false
     clearVersionBlock()
+    refreshExistingStems()
     titleEl.focus()
     updateSubmitState()
   })
@@ -359,12 +411,27 @@ export async function renderUploadSong(container, user) {
                 ${!isNew && (versionChoice.versionSlug ?? null) === v.versionSlug ? 'checked' : ''} />
               <span>Replace ${escHtml(v.label)}</span>
             </label>
-            ${v.isDefault
-              ? '<span class="gt-upload__version-badge">default</span>'
-              : `<button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__version-make-default"
-                   data-v="${v.versionSlug ?? ''}">Make default</button>`}
+            <div class="gt-upload__version-actions">
+              ${v.isDefault
+                ? '<span class="gt-upload__version-badge">default</span>'
+                : `<button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__version-make-default"
+                     data-v="${v.versionSlug ?? ''}">Make default</button>`}
+              ${v.versionSlug
+                ? `<button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__version-delete"
+                     data-v="${escHtml(v.versionSlug)}" title="Delete version"
+                     aria-label="Delete version ${escHtml(v.label)}">${icon('trash')}</button>`
+                : ''}
+            </div>
           </div>
         `).join('')}
+      </div>
+      <div class="gt-upload__danger">
+        <button type="button" class="gc-btn gc-btn--danger gc-btn--sm" id="delete-song-stems">
+          ${icon('trash')} Delete all stems
+        </button>
+        <span class="gt-upload__version-hint">
+          Removes every stem file and version from GraceTracks. The GraceChords song entry is unaffected.
+        </span>
       </div>
     `
 
@@ -390,6 +457,7 @@ export async function renderUploadSong(container, user) {
           versionChoice = { kind: 'replace', versionSlug: v === 'original' ? null : v }
         }
         renderVersionBlock() // shows/hides the new-version name input
+        refreshExistingStems()
         updateSubmitState()
       })
     })
@@ -407,6 +475,82 @@ export async function renderUploadSong(container, user) {
         songVersions = await fetchSongVersions(selectedSong.slug)
         renderVersionBlock()
       })
+    })
+
+    versionBlock.querySelectorAll('.gt-upload__version-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const vSlug = btn.dataset.v
+        const row = songVersions.find(r => r.version_slug === vSlug)
+        if (!row) return
+        const ok = window.confirm(
+          `Permanently delete version “${row.label}” of “${selectedSong.title}”? ` +
+          `All of its stem files are removed from storage.`
+        )
+        if (!ok) return
+        btn.disabled = true
+        formError.hidden = true
+        try {
+          await deleteVersionStems(r2Folder(), vSlug)
+          const { error } = await supabase
+            .from('song_versions')
+            .delete()
+            .eq('song_slug', selectedSong.slug)
+            .eq('version_slug', vSlug)
+          if (error) throw new Error(error.message)
+        } catch (err) {
+          formError.textContent = `Could not delete version: ${err.message}`
+          formError.hidden = false
+          btn.disabled = false
+          return
+        }
+        // If the deleted version was flagged default, no row is flagged now,
+        // which correctly falls back to Original.
+        if (versionChoice.kind === 'replace' && versionChoice.versionSlug === vSlug) {
+          versionChoice = { kind: 'new', label: '' }
+        }
+        songVersions = await fetchSongVersions(selectedSong.slug)
+        renderVersionBlock()
+        refreshExistingStems()
+        updateSubmitState()
+      })
+    })
+
+    versionBlock.querySelector('#delete-song-stems')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget
+      const ok = window.confirm(
+        `Permanently delete ALL stems for “${selectedSong.title}”? Every version and ` +
+        `stem file is removed from GraceTracks. The GraceChords song entry is not affected.`
+      )
+      if (!ok) return
+      btn.disabled = true
+      formError.hidden = true
+      try {
+        await deleteSongStems(r2Folder())
+        let { error } = await supabase
+          .from('song_versions')
+          .delete()
+          .eq('song_slug', selectedSong.slug)
+        if (error) throw new Error(error.message)
+        ;({ error } = await supabase
+          .from('songs')
+          .update({ has_stems: false, gracetracks_url: null })
+          .eq('slug', selectedSong.slug))
+        if (error) throw new Error(error.message)
+      } catch (err) {
+        formError.textContent = `Could not delete stems: ${err.message}`
+        formError.hidden = false
+        btn.disabled = false
+        return
+      }
+      // The song now behaves like a first-time upload target (stem_slug is
+      // kept so a re-upload lands back in the same R2 folder).
+      selectedSong.has_stems = false
+      const catRow = catalog.find(s => s.slug === selectedSong.slug)
+      if (catRow) catRow.has_stems = false
+      selMetaEl.textContent = selectedSong.artist ?? ''
+      clearVersionBlock()
+      refreshExistingStems()
+      updateSubmitState()
     })
   }
 
@@ -440,7 +584,10 @@ export async function renderUploadSong(container, user) {
     const tile = stemsGrid.querySelector(`[data-track="${track.id}"]`) ??
       (() => { const el = document.createElement('div'); el.dataset.track = track.id; stemsGrid.appendChild(el); return el })()
 
-    tile.className = `gt-upload__stem gt-upload__stem--${state.status}`
+    const existing = existingFiles[track.id] ?? []
+    const hasExisting = state.status === 'empty' && existing.length > 0
+    tile.className = `gt-upload__stem gt-upload__stem--${state.status}` +
+      (hasExisting ? ' gt-upload__stem--existing' : '')
 
     // What this file will be renamed to in R2 (instrument slot drives the name).
     const ext = state.file ? state.file.name.split('.').pop().toLowerCase() : ''
@@ -448,7 +595,15 @@ export async function renderUploadSong(container, user) {
     const targetName = `${track.id}.${willConvert ? 'm4a' : ext}`
 
     let bodyHtml = ''
-    if (state.status === 'empty') {
+    if (hasExisting) {
+      bodyHtml = `
+        <span class="gt-upload__stem-existing">${icon('check', { className: 'gt-icon' })} On server</span>
+        <span class="gt-upload__stem-filename" title="${escHtml(existing.join(', '))}">${escHtml(existing.join(', '))}</span>
+        <span class="gt-upload__stem-drop-hint">Drop a file to replace</span>
+        <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__stem-delete"
+          aria-label="Delete ${track.label} stem from server" title="Delete from server">${icon('trash')}</button>
+      `
+    } else if (state.status === 'empty') {
       bodyHtml = `
         <span class="gt-upload__stem-drop-hint">Drop file or</span>
         <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__stem-browse">Browse</button>
@@ -459,8 +614,13 @@ export async function renderUploadSong(container, user) {
           ${escHtml(state.file.name)}
         </span>
         <span class="gt-upload__stem-size">${formatBytes(state.file.size)}</span>
-        <span class="gt-upload__stem-target">→ ${escHtml(targetName)}${willConvert ? ' (converted)' : ''}</span>
+        <span class="gt-upload__stem-target">→ ${escHtml(targetName)}${willConvert ? ' (converted)' : ''}${existing.length ? ' — replaces existing' : ''}</span>
         <button type="button" class="gc-btn gc-btn--ghost gc-btn--sm gt-upload__stem-remove" aria-label="Remove ${track.label} file">${icon('close')}</button>
+      `
+    } else if (state.status === 'deleting') {
+      bodyHtml = `
+        <span class="gt-upload__stem-drop-hint">Deleting…</span>
+        <div class="gt-upload__progress"><div class="gt-upload__progress-bar"></div></div>
       `
     } else if (state.status === 'converting') {
       bodyHtml = `
@@ -497,11 +657,33 @@ export async function renderUploadSong(container, user) {
     const fileInput = tile.querySelector('.gt-upload__stem-input')
     const browseBtn = tile.querySelector('.gt-upload__stem-browse')
     const removeBtn = tile.querySelector('.gt-upload__stem-remove')
+    const deleteBtn = tile.querySelector('.gt-upload__stem-delete')
 
     browseBtn?.addEventListener('click', () => fileInput.click())
 
     removeBtn?.addEventListener('click', () => {
       tileState[track.id] = { file: null, status: 'empty', error: '' }
+      renderTile(track)
+      updateSubmitState()
+    })
+
+    deleteBtn?.addEventListener('click', async () => {
+      const files = existingFiles[track.id] ?? []
+      if (files.length === 0 || !selectedSong) return
+      const ok = window.confirm(
+        `Permanently delete the ${track.label} stem (${files.join(', ')}) from ` +
+        `“${selectedSong.title}” — ${replaceTargetLabel()}?`
+      )
+      if (!ok) return
+      tileState[track.id] = { file: null, status: 'deleting', error: '' }
+      renderTile(track)
+      try {
+        await deleteStemFiles(r2Folder(), versionChoice.versionSlug, files)
+        delete existingFiles[track.id]
+        tileState[track.id] = { file: null, status: 'empty', error: '' }
+      } catch (err) {
+        tileState[track.id] = { file: null, status: 'error', error: err.message ?? 'Delete failed' }
+      }
       renderTile(track)
       updateSubmitState()
     })
@@ -704,6 +886,22 @@ export async function renderUploadSong(container, user) {
         })
 
         if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`)
+
+        // When replacing, remove stale siblings left at an old name/extension
+        // (e.g. drums.wav after uploading drums.m4a, or an aliased drum.m4a) —
+        // the mixer probes m4a-first and aliases, so a leftover would shadow
+        // the new file. Best effort: a failure leaves an extra file behind,
+        // not a broken song.
+        const uploadedName = `${track.id}.${ext}`
+        const stale = (existingFiles[track.id] ?? []).filter(n => n !== uploadedName)
+        if (stale.length > 0) {
+          try {
+            await deleteStemFiles(stemSlug, versionSlug, stale)
+          } catch (cleanupErr) {
+            console.warn(`[GraceTracks] could not remove old ${track.id} files:`, cleanupErr)
+          }
+          existingFiles[track.id] = [uploadedName]
+        }
 
         tileState[track.id].status = 'done'
         renderTile(track)

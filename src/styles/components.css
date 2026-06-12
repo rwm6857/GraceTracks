@@ -854,6 +854,14 @@
   border-color: var(--gc-danger);
   background: color-mix(in srgb, var(--gc-danger) 8%, var(--gc-surface-1));
 }
+.gt-upload__stem--existing {
+  border-style: solid;
+}
+.gt-upload__stem--deleting {
+  border-style: solid;
+  border-color: var(--gc-danger);
+  cursor: default;
+}
 
 .gt-upload__stem-icon {
   /* Reuses the X32 scribble-strip icons from the mixer (44px), downsized for
@@ -924,6 +932,28 @@
   font-size: var(--gc-font-cap);
   color: var(--gc-danger);
   word-break: break-word;
+}
+
+/* A stem already on the server (replace targets) */
+.gt-upload__stem-existing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--gc-font-cap);
+  font-weight: 600;
+  color: var(--gc-text-secondary);
+}
+.gt-upload__stem-existing .gt-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.gt-upload__stem-delete {
+  color: var(--gc-danger);
+}
+.gt-upload__stem-delete .gt-icon {
+  width: 14px;
+  height: 14px;
 }
 
 /* Upload progress bar */
@@ -1123,6 +1153,33 @@
   background: var(--gc-surface-3);
   border-radius: var(--radius-pill);
   padding: 2px var(--space-2);
+}
+
+.gt-upload__version-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.gt-upload__version-delete {
+  color: var(--gc-danger);
+}
+.gt-upload__version-delete .gt-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Whole-song stem deletion */
+.gt-upload__danger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.gt-upload__danger .gt-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .gt-upload__version-label-wrap {

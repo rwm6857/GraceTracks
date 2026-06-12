@@ -34,6 +34,7 @@ import {
   ChevronRight,
   ChevronDown,
   User,
+  Trash2,
 } from 'lucide'
 
 // X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
@@ -70,6 +71,7 @@ const ICONS = {
   'chevron-right': ChevronRight,
   'chevron-down': ChevronDown,
   user: User,
+  trash: Trash2,
 }
 
 /** X32 instrument icons (raw SVG strings, already `currentColor` + 0 0 64 64). */
