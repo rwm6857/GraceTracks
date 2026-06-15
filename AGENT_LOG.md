@@ -2,6 +2,37 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-15 — Fix: replaced stems served stale (service-worker CacheFirst)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/friendly-darwin-jgibva`
+**Status**: Completed
+
+**Summary**: Replacing a stem in the uploader writes fresh bytes to R2, but the
+file overwrites the same R2 key — so its URL is byte-for-byte identical. The PWA
+service worker caches `.m4a`/`.wav` with `CacheFirst` (90-day TTL), so the mixer
+kept serving the old audio even after a hard reload (the SW answers before the
+network). Verified the upload/delete data paths are internally consistent (same
+keys the mixer reads), confirming this is caching, not an R2-write failure.
+
+Fixed with a per-song cache-bust token: a new `songs.stems_updated_at` column is
+bumped on every stem upload/replace/delete; the mixer appends it to stem URLs as
+`?t=<epoch>`, giving the replaced file a fresh URL / cache entry (old entries age
+out via the route's `maxEntries` LRU). One token per song over-invalidates across
+versions — accepted as safe.
+
+**Changes**:
+- `supabase/migrations/20260615000000_songs_stems_updated_at.sql` — idempotent
+  `ADD COLUMN IF NOT EXISTS stems_updated_at timestamptz` (GraceTracks-owned, same
+  pattern as the existing has_stems/stem_slug columns).
+- `src/audio/stems.js` — `resolveStemUrl` takes an optional `cacheToken`, appended
+  as `?t=<token>` to each candidate URL.
+- `src/ui/mixer.js` — selects `stems_updated_at`, derives the token, passes it.
+- `vite.config.js` — stem route regex `→ /\.(wav|m4a)(\?.*)?$/i` so the busted URL
+  still matches (otherwise it would bypass the cache entirely).
+- `src/ui/uploadSong.js` — bumps `stems_updated_at` on upload submit (both attach
+  and new-song paths) and on per-stem / version deletes (new `touchStems` helper).
+
 ### 2026-06-12 — Fix: /api/stems used the (unconfigured) R2 binding
 
 **Agent**: Claude (claude-opus-4-8)

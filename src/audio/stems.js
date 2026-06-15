@@ -18,6 +18,9 @@
  * @param {string} r2Base   - Base URL, e.g. https://assets.gracechords.com
  * @param {string} stemSlug - Subdirectory for this song's stems
  * @param {string} stemId   - Canonical stem ID (drums, perc, bass, …, vox, click, ambient)
+ * @param {string|number|null} cacheToken - Optional cache-bust token appended as
+ *   ?t=<token>; changes when stems are replaced so a new file isn't shadowed by
+ *   the service worker's CacheFirst entry for the old one
  * @returns {Promise<{url: string, response: Response}|null>}
  */
 
@@ -43,12 +46,17 @@ export function trackIdForFile(filename) {
   return null
 }
 
-export async function resolveStemUrl(r2Base, stemSlug, stemId) {
+export async function resolveStemUrl(r2Base, stemSlug, stemId, cacheToken = null) {
   const candidates = [stemId, ...(STEM_ALIASES[stemId] ?? [])]
+  // A replaced stem overwrites the same R2 key, so its URL is byte-for-byte
+  // identical — the service worker's CacheFirst rule would then keep serving
+  // the old audio. Appending a token that changes when stems are replaced
+  // (songs.stems_updated_at) gives the new file a fresh URL / cache entry.
+  const suffix = cacheToken ? `?t=${encodeURIComponent(cacheToken)}` : ''
 
   for (const id of candidates) {
     for (const ext of ['m4a', 'wav']) {
-      const url = `${r2Base}/tracks/${stemSlug}/${encodeURIComponent(id)}.${ext}`
+      const url = `${r2Base}/tracks/${stemSlug}/${encodeURIComponent(id)}.${ext}${suffix}`
       try {
         const res = await fetch(url)
         if (res.ok) return { url, response: res }

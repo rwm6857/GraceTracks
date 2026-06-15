@@ -59,7 +59,7 @@ export async function renderMixer(container, slug, requestedVersion = null) {
   // — Fetch song
   const { data: songs, error } = await supabase
     .from('songs')
-    .select('slug, stem_slug, title, artist, tempo, time_signature, default_key, gracetracks_url')
+    .select('slug, stem_slug, title, artist, tempo, time_signature, default_key, gracetracks_url, stems_updated_at')
     .eq('slug', slug)
     .eq('is_deleted', false)
     .limit(1)
@@ -90,6 +90,11 @@ export async function renderMixer(container, slug, requestedVersion = null) {
 
   const stemSlug = versionFolder(song.stem_slug || song.slug, activeVersion.versionSlug)
   const r2Base = import.meta.env.VITE_R2_PUBLIC_URL
+  // Cache-bust token: a replaced stem reuses its R2 key, so without this the
+  // service worker (CacheFirst on .m4a/.wav) would serve the stale audio. The
+  // uploader bumps stems_updated_at whenever stems change, giving the new file
+  // a distinct URL. One token per song over-invalidates across versions — safe.
+  const cacheToken = Date.parse(song.stems_updated_at) || null
 
   // — Engine setup (phase-lock by default; ?engine=stream opts into the streaming engine)
   const engine = await createEngine()
@@ -118,7 +123,7 @@ export async function renderMixer(container, slug, requestedVersion = null) {
   // which exhausts iOS Safari's per-tab memory limit and causes a WebKit crash.
   // Sequential loading lets each compressed buffer be GC'd before the next fetch.
   for (const stem of STEMS) {
-    const resolved = await resolveStemUrl(r2Base, stemSlug, stem)
+    const resolved = await resolveStemUrl(r2Base, stemSlug, stem, cacheToken)
     if (!resolved) {
       stemsCompleted++
       const pct = Math.round((stemsCompleted / totalStems) * 100)

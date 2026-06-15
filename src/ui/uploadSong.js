@@ -69,6 +69,17 @@ function resetState() {
   existingSeq++
 }
 
+// Bump the song's cache-bust token (best effort) so the mixer re-fetches stems
+// after a change instead of serving the service worker's cached copies.
+async function touchStems(slug) {
+  if (!slug) return
+  const { error } = await supabase
+    .from('songs')
+    .update({ stems_updated_at: new Date().toISOString() })
+    .eq('slug', slug)
+  if (error) console.warn('[GraceTracks] could not bump stems_updated_at:', error)
+}
+
 function slugify(str) {
   return str
     .toLowerCase()
@@ -497,6 +508,7 @@ export async function renderUploadSong(container, user) {
             .eq('song_slug', selectedSong.slug)
             .eq('version_slug', vSlug)
           if (error) throw new Error(error.message)
+          await touchStems(selectedSong.slug)
         } catch (err) {
           formError.textContent = `Could not delete version: ${err.message}`
           formError.hidden = false
@@ -679,6 +691,7 @@ export async function renderUploadSong(container, user) {
       renderTile(track)
       try {
         await deleteStemFiles(r2Folder(), versionChoice.versionSlug, files)
+        await touchStems(selectedSong.slug)
         delete existingFiles[track.id]
         tileState[track.id] = { file: null, status: 'empty', error: '' }
       } catch (err) {
@@ -928,7 +941,9 @@ export async function renderUploadSong(container, user) {
       // Attach stems to an existing song — touch only stem-related fields so we
       // don't clobber GraceChords metadata. stem_slug is only set the first time
       // a song gets stems; later uploads must not move its R2 folder.
-      const update = { has_stems: true, gracetracks_url: gracetracksUrl }
+      // stems_updated_at bumps the mixer's cache-bust token so the replaced
+      // stem (same R2 key) isn't shadowed by the service worker's cached copy.
+      const update = { has_stems: true, gracetracks_url: gracetracksUrl, stems_updated_at: new Date().toISOString() }
       if (!selectedSong.has_stems) update.stem_slug = stemSlug
       ;({ error: dbError } = await supabase
         .from('songs')
@@ -947,6 +962,7 @@ export async function renderUploadSong(container, user) {
           has_stems: true,
           stem_slug: stemSlug,
           gracetracks_url: gracetracksUrl,
+          stems_updated_at: new Date().toISOString(),
           is_deleted: false,
         }, { onConflict: 'slug' }))
     }
