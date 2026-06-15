@@ -37,7 +37,10 @@ export default defineConfig({
         // Stem WAV files: cache on first play, then serve from cache
         runtimeCaching: [
           {
-            urlPattern: /\.(wav|m4a)$/i,
+            // Allow an optional ?t=<token> cache-bust suffix (added by the
+            // mixer when stems are replaced) — without (\?.*)? these URLs would
+            // no longer match the route and bypass the cache entirely.
+            urlPattern: /\.(wav|m4a)(\?.*)?$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'stems-cache',
