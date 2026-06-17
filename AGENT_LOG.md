@@ -2,6 +2,30 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-15 — Fix: Safari WAV→M4A conversion produced silent/corrupt stems
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/friendly-darwin-jgibva`
+**Status**: Completed
+
+**Summary**: Follow-up to the cache fix. After confirming the replaced stem was
+written to R2 (updated timestamp, no 404) but played silent in-app and wouldn't
+play when downloaded, traced it to the in-browser WAV→M4A converter on Safari/Mac,
+not caching or a delete/upload race (the stale-file cleanup provably never targets
+the just-uploaded key; R2 overwrites are atomic). Safari's WebCodecs `AudioEncoder`
+omits `decoderConfig.description`, so mp4-muxer wrote an MP4 with no AAC codec
+config → an undecodable/silent file that still uploaded fine.
+
+**Changes** (`src/audio/encodeM4a.js`):
+- `buildAacAsc()` — synthesizes the 2-byte AAC-LC AudioSpecificConfig and injects
+  it into the encoder output's `decoderConfig.description` only when the browser
+  omits it, so the muxer writes a valid esds (Chrome's real description untouched).
+- `verifyPlayableM4a()` — after finalize, decodes the M4A and asserts it's
+  non-empty, ~full-length, and non-silent; throws otherwise. The uploader's
+  existing try/catch then falls back to uploading the raw WAV (mixer supports it),
+  so a corrupt file can no longer reach R2. On re-upload the stale-sibling cleanup
+  removes the broken .m4a.
+
 ### 2026-06-15 — Fix: replaced stems served stale (service-worker CacheFirst)
 
 **Agent**: Claude (claude-opus-4-8)

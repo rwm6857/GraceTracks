@@ -25,6 +25,63 @@ export function isM4aEncodeSupported() {
   )
 }
 
+// MPEG-4 sampling-frequency index table (ISO 14496-3). Index 15 means "explicit
+// frequency follows" and needs a longer config — we only synthesize the 2-byte
+// form, so unlisted rates skip synthesis and lean on the verify-and-fallback net.
+const SR_INDEX = {
+  96000: 0, 88200: 1, 64000: 2, 48000: 3, 44100: 4, 32000: 5,
+  24000: 6, 22050: 7, 16000: 8, 12000: 9, 11025: 10, 8000: 11, 7350: 12,
+}
+
+/**
+ * Build the 2-byte AAC-LC AudioSpecificConfig (objectType=2) for a sample rate
+ * and channel count. Safari's AudioEncoder omits `decoderConfig.description`, so
+ * mp4-muxer would write an MP4 with no codec config → an undecodable/silent file.
+ * Supplying this lets the muxer write a valid esds box. Returns null for sample
+ * rates outside the short-form table.
+ * @returns {Uint8Array|null}
+ */
+function buildAacAsc(sampleRate, channels) {
+  const freqIdx = SR_INDEX[sampleRate]
+  if (freqIdx == null) return null
+  const objectType = 2 // AAC-LC
+  // 5 bits objectType | 4 bits freqIdx | 4 bits channelConfig | 3 bits zero pad
+  const b0 = (objectType << 3) | (freqIdx >> 1)
+  const b1 = ((freqIdx & 1) << 7) | (channels << 3)
+  return new Uint8Array([b0, b1])
+}
+
+/**
+ * Confirm an encoded M4A actually decodes to non-silent audio of about the
+ * expected length. Catches Safari's structurally-broken encoder output, which
+ * uploads fine but plays as silence everywhere. Throws if the file is
+ * undecodable, badly truncated, or entirely silent.
+ */
+async function verifyPlayableM4a(arrayBuffer, expectedDurationSec) {
+  const AC = window.AudioContext || window.webkitAudioContext
+  const ctx = new AC()
+  let decoded
+  try {
+    // decodeAudioData detaches its input on some engines — hand it a copy so the
+    // caller's buffer stays intact for the uploaded File.
+    decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+  } finally {
+    ctx.close?.()
+  }
+  if (!decoded || decoded.length === 0) throw new Error('converted M4A decoded empty')
+  if (decoded.duration < expectedDurationSec * 0.9) {
+    throw new Error(`converted M4A truncated (${decoded.duration.toFixed(1)}s of ${expectedDurationSec.toFixed(1)}s)`)
+  }
+  // Sample sparsely for any signal — a working stem is never pure digital silence.
+  const data = decoded.getChannelData(0)
+  let peak = 0
+  for (let i = 0; i < data.length; i += 997) {
+    const v = Math.abs(data[i])
+    if (v > peak) peak = v
+  }
+  if (peak < 1e-4) throw new Error('converted M4A is silent')
+}
+
 /**
  * Convert a WAV File to an M4A (AAC-LC) File. Throws if encoding is not
  * supported or fails — callers should fall back to the original file.
@@ -62,9 +119,20 @@ export async function wavFileToM4a(file, { bitrate = 160000 } = {}) {
     fastStart: 'in-memory',
   })
 
+  // Safari emits AAC chunks with no decoderConfig.description; synthesize one so
+  // the muxer can still write a valid esds. Only fills it in when missing, so
+  // browsers that provide a real description (Chrome) are left untouched.
+  const fallbackAsc = buildAacAsc(sampleRate, numberOfChannels)
   let encodeError = null
   const encoder = new AudioEncoder({
-    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+    output: (chunk, meta) => {
+      if (fallbackAsc && meta?.decoderConfig && !meta.decoderConfig.description) {
+        meta = { ...meta, decoderConfig: { ...meta.decoderConfig, description: fallbackAsc } }
+      } else if (fallbackAsc && !meta?.decoderConfig) {
+        meta = { decoderConfig: { codec: config.codec, sampleRate, numberOfChannels, description: fallbackAsc } }
+      }
+      muxer.addAudioChunk(chunk, meta)
+    },
     error: (e) => { encodeError = e },
   })
   encoder.configure(config)
@@ -102,6 +170,11 @@ export async function wavFileToM4a(file, { bitrate = 160000 } = {}) {
   // ─── 5. Finalize MP4 → File ────────────────────────────────────────────────
   muxer.finalize()
   const { buffer } = muxer.target
+
+  // Reject a structurally-broken encode (Safari) before it can reach R2 — the
+  // caller falls back to uploading the original WAV, which the mixer supports.
+  await verifyPlayableM4a(buffer, audioBuffer.duration)
+
   const outName = file.name.replace(/\.wav$/i, '') + '.m4a'
   return new File([buffer], outName, { type: 'audio/mp4' })
 }
