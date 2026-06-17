@@ -2,6 +2,40 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-17 — Upload page UX overhaul + stop-playback-on-leave
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/awesome-mayer-3j7hiu`
+**Status**: Completed
+
+**Summary**: A batch of upload-page polish plus two app-shell fixes. Stem tiles
+are now fixed squares (`aspect-ratio: 1`) that never reflow when a file/stem is
+present, laid out with an `auto-fill minmax(130px)` grid so the row stays full
+(no lone "Ambient" tile orphaned on its own row) and the squares are smaller.
+The version selector now lists Original first (selected by default) with "Add
+new version" last and its name field inline; each version has an icon-only
+delete that opens a confirmation modal (deleting Original removes all
+recordings). New-song creation now links out to the GraceChords editor instead
+of the inline form. Leaving the mixer for any other view now disposes the audio
+session so playback stops, and the navbar "Upload" action opens a fresh page
+while reloads/back-forward restore the prior song+version selection.
+
+**Changes**:
+- `src/ui/uploadSong.js` — square-tile inline "Drop file or Browse"; trimmed
+  hint + "Search for a Song" heading; "Change"→"Clear"; removed inline new-song
+  form (now an external link to `gracechords.com/portal/editor`); version block
+  reordered (Original default + inline new-version name); per-version delete via
+  confirm modal; success panel reverts to the Upload button when a stem changes;
+  sessionStorage persists song+version selection across reloads.
+- `src/ui/confirmModal.js` — new reusable promise-based confirmation modal.
+- `src/main.js` — `disposeMixer()` on leaving the mixer (stops playback);
+  `navigate(path, { freshUpload })` + fresh-upload handling.
+- `src/ui/navbar.js` — "Upload" actions request a fresh upload page; bolder
+  nav links.
+- `src/styles/components.css` — square tiles + auto-fill grid, inline browse
+  link, corner delete/remove buttons, version-name input, confirm modal,
+  `.gc-navlink` font-weight.
+
 ### 2026-06-15 — Fix: replacements corrupt stems (overwrite → delete-then-write)
 
 **Agent**: Claude (claude-opus-4-8)

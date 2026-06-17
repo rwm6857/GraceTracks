@@ -186,7 +186,7 @@ export function createNavbar({ navigate }) {
         avatarBtn.setAttribute('aria-expanded', String(willOpen))
       })
       authSlot.querySelector('[data-upload]')?.addEventListener('click', (e) => {
-        e.preventDefault(); closeUserMenu(); navigate('/upload')
+        e.preventDefault(); closeUserMenu(); navigate('/upload', { freshUpload: true })
       })
       authSlot.querySelector('[data-signout]')?.addEventListener('click', async () => {
         closeUserMenu(); await signOut()
@@ -215,7 +215,7 @@ export function createNavbar({ navigate }) {
         </button>
       `
       drawerAuthSlot.querySelector('[data-upload]')?.addEventListener('click', () => {
-        closeDrawer(); navigate('/upload')
+        closeDrawer(); navigate('/upload', { freshUpload: true })
       })
       drawerAuthSlot.querySelector('[data-signout]')?.addEventListener('click', async () => {
         closeDrawer(); await signOut()
