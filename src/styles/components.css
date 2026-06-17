@@ -690,6 +690,34 @@
   margin-top: var(--space-2);
 }
 
+/* Confirmation modal (reuses the .gt-signin-overlay backdrop) */
+.gt-confirm {
+  background: var(--gc-surface-1);
+  border: 1px solid var(--gc-separator);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--gc-shadow-2);
+}
+.gt-confirm__title {
+  font-size: var(--gc-font-h2);
+  font-weight: var(--gc-weight-h2);
+  color: var(--gc-text);
+  margin: 0 0 var(--space-3);
+}
+.gt-confirm__message {
+  font-size: var(--gc-font-body);
+  color: var(--gc-text-secondary);
+  margin: 0 0 var(--space-5);
+  line-height: 1.5;
+}
+.gt-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
 /* ==========================================================================
    Upload Page
    ========================================================================== */
@@ -798,30 +826,32 @@
   border-color: var(--gc-danger);
 }
 
-/* Stems grid */
+/* Stems grid — auto-fill so the row stays full (no lone tile orphaned on its
+   own row) and the squares shrink to a sensible size instead of being huge. */
 .gt-upload__stems {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: var(--space-3);
 }
 
 @media (max-width: 700px) {
-  .gt-upload__stems { grid-template-columns: repeat(2, 1fr); }
   .gt-upload__fields { grid-template-columns: 1fr; }
   .gt-upload__field--full { grid-column: 1; }
 }
 
-/* Individual stem tile */
+/* Individual stem tile — locked to a square via aspect-ratio so its height
+   never changes with content (selected / on-server / done all stay square). */
 .gt-upload__stem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
   background: var(--gc-surface-1);
   border: 2px dashed var(--gc-separator);
   border-radius: var(--radius-md);
-  min-height: 120px;
+  aspect-ratio: 1 / 1;
   text-align: center;
   cursor: pointer;
   transition:
@@ -866,8 +896,8 @@
 .gt-upload__stem-icon {
   /* Reuses the X32 scribble-strip icons from the mixer (44px), downsized for
      the upload slots so the instrument artwork stays legible. */
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
 }
 .gt-upload__stem-icon img,
@@ -898,6 +928,19 @@
   font-size: var(--gc-font-cap);
   color: var(--gc-text-tertiary);
 }
+
+/* Inline "Browse" / "Retry" affordance — a text link, kept on one line with
+   the "Drop file or" hint so the tile stays compact. */
+.gt-upload__stem-browse {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--gc-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.gt-upload__stem-browse:hover { color: var(--gc-primary-hover); }
 
 .gt-upload__stem-filename {
   font-size: var(--gc-font-cap);
@@ -948,10 +991,33 @@
   height: 14px;
 }
 
-.gt-upload__stem-delete {
-  color: var(--gc-danger);
+/* Corner action button (delete on-server stem / remove a picked file) — pinned
+   to the tile's top-right so it doesn't add to the square's vertical content. */
+.gt-upload__stem-corner {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--gc-text-tertiary);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick) var(--gc-ease), color var(--gc-dur-quick) var(--gc-ease);
 }
-.gt-upload__stem-delete .gt-icon {
+.gt-upload__stem-corner:hover {
+  background: var(--gc-surface-3);
+}
+.gt-upload__stem-delete:hover {
+  color: var(--gc-danger);
+  background: color-mix(in srgb, var(--gc-danger) 12%, transparent);
+}
+.gt-upload__stem-corner .gt-icon {
   width: 14px;
   height: 14px;
 }
@@ -1162,37 +1228,39 @@
   flex-shrink: 0;
 }
 
+/* Icon-only per-version delete button at the right of each version row. */
 .gt-upload__version-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
   color: var(--gc-danger);
+  cursor: pointer;
+  transition: background var(--gc-dur-quick) var(--gc-ease);
+}
+.gt-upload__version-delete:hover {
+  background: color-mix(in srgb, var(--gc-danger) 12%, transparent);
 }
 .gt-upload__version-delete .gt-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
-/* Whole-song stem deletion */
-.gt-upload__danger {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
+/* Inline name field inside the "Add new version" row — sized to sit beside the
+   radio label without changing the row height. */
+.gt-upload__version-name {
+  width: auto;
+  flex: 1;
+  max-width: 200px;
+  height: 28px;
+  font-size: var(--gc-font-sub);
 }
-.gt-upload__danger .gt-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.gt-upload__version-label-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-left: var(--space-5);
-}
-
-.gt-upload__version-hint {
-  font-size: var(--gc-font-cap);
-  color: var(--gc-text-tertiary);
-}
+.gt-upload__version-name[hidden] { display: none; }
 
 /* "Create a new song" toggle */
 .gt-upload__newlink {
@@ -1279,6 +1347,7 @@
   border-radius: var(--radius-sm);
   color: var(--gc-text);
   text-decoration: none;
+  font-weight: 600;
   border: 1px solid transparent;
   transition: background var(--gc-dur-quick) var(--gc-ease);
 }

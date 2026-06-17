@@ -13,7 +13,8 @@ const app = document.getElementById('app')
 // ─── Navbar ──────────────────────────────────────────────────────────────────
 let _navbar = null
 
-function navigate(path) {
+function navigate(path, { freshUpload = false } = {}) {
+  if (freshUpload) _uploadFresh = true
   history.pushState({}, '', path)
   render()
 }
@@ -40,17 +41,38 @@ let _pickerEl     = null
 let _uploadEl     = null
 let _registerEl   = null
 let _currentUser  = null
+// Set by navigate(..., { freshUpload: true }) — the navbar "Upload" action — so
+// the next /upload render starts a blank page instead of restoring prior state.
+let _uploadFresh  = false
+
+function disposeMixer() {
+  if (_mixerCleanup) { _mixerCleanup(); _mixerCleanup = null }
+  if (_mixerEl)      { _mixerEl.remove(); _mixerEl = null }
+  _mixerKey = null
+}
 
 async function render() {
   const route = getRoute()
   const key = route.view === 'mixer' ? `mixer:${route.slug}|${route.version ?? ''}` : route.view
   _navbar?.setActive(window.location.pathname)
+
+  // A fresh /upload (navbar "Upload") discards any cached upload page so it
+  // re-renders blank — even if we're already on /upload.
+  if (route.view === 'upload' && _uploadFresh && _uploadEl) {
+    _uploadEl.remove()
+    _uploadEl = null
+    if (currentView === 'upload') currentView = null
+  }
+
   if (key === currentView) return
   currentView = key
 
+  // Leaving the mixer for any other view tears the audio session down so
+  // playback stops (we don't keep stems playing on the picker/upload pages).
+  if (route.view !== 'mixer') disposeMixer()
+
   // Hide all panels
   if (_pickerEl)   _pickerEl.hidden   = true
-  if (_mixerEl)    _mixerEl.hidden    = true
   if (_uploadEl)   _uploadEl.hidden   = true
   if (_registerEl) _registerEl.hidden = true
 
@@ -62,9 +84,7 @@ async function render() {
     }
 
     // Different song or version — dispose old session
-    if (_mixerCleanup) { _mixerCleanup(); _mixerCleanup = null }
-    if (_mixerEl)      { _mixerEl.remove(); _mixerEl = null }
-    _mixerKey = null
+    disposeMixer()
 
     _mixerEl = document.createElement('main')
     _mixerEl.id = 'gt-main'
@@ -77,11 +97,13 @@ async function render() {
     if (_uploadEl) {
       _uploadEl.hidden = false
     } else {
+      const fresh = _uploadFresh
+      _uploadFresh = false
       _uploadEl = document.createElement('main')
       _uploadEl.id = 'gt-main-upload'
       _uploadEl.className = 'gt-main'
       app.appendChild(_uploadEl)
-      await renderUploadSong(_uploadEl, _currentUser)
+      await renderUploadSong(_uploadEl, _currentUser, { fresh })
     }
 
   } else if (route.view === 'register') {
