@@ -2,6 +2,30 @@
 
 Log of agent-driven development, decisions, and milestones on the GraceTracks project.
 
+### 2026-06-15 — Fix: replacements corrupt stems (overwrite → delete-then-write)
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/friendly-darwin-jgibva`
+**Status**: Completed
+
+**Summary**: Root cause of the "replaced stem won't play" reports. Diagnosed via
+controlled tests: the same WAV uploaded to a new song works, but used as a
+replacement is corrupt at the R2 *origin* (dashboard download broken), at about
+the same byte size. So the converter, source file, and CDN are all clean — the
+trigger is **overwriting an existing R2 object via the presigned PUT**; writing
+the identical bytes to a fresh (never-used) key is always fine. Reworked the
+upload to never overwrite: delete-then-write.
+
+**Changes**:
+- `src/ui/uploadSong.js` — per-track upload is now: (1) delete existing file(s)
+  for the track, (2) `waitUntilGone` polls R2 until they're confirmed gone, (3)
+  convert/rename, (4) presign + PUT to the now-empty key, (5) `confirmUploaded`
+  verifies the stored object's byte size matches what was sent. Replaces the old
+  overwrite + post-upload stale-sibling cleanup.
+- `src/lib/stemsApi.js` — `statStemFiles()` returns `[{name,size}]` from the S3
+  listing (origin, no CDN); `listStemFiles` now derives names from it. Used by
+  both confirmation steps.
+
 ### 2026-06-15 — Fix: Safari WAV→M4A conversion produced silent/corrupt stems
 
 **Agent**: Claude (claude-opus-4-8)

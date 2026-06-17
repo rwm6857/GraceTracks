@@ -35,15 +35,25 @@ async function stemsFetch(path, opts = {}) {
 }
 
 /**
+ * Files with sizes (e.g. [{ name: 'drums.m4a', size: 12914872 }]) in one
+ * version folder, read straight from R2 via the S3 API (origin, no CDN).
+ * versionSlug null = the legacy Original path.
+ * @returns {Promise<Array<{name: string, size: number}>>}
+ */
+export async function statStemFiles(stemSlug, versionSlug) {
+  const params = new URLSearchParams({ slug: stemSlug })
+  if (versionSlug) params.set('version', versionSlug)
+  const { files } = await stemsFetch(`/api/stems?${params}`)
+  return files ?? []
+}
+
+/**
  * Filenames (e.g. ['drums.m4a', 'vocals.wav']) currently in one version
  * folder. versionSlug null = the legacy Original path.
  * @returns {Promise<string[]>}
  */
 export async function listStemFiles(stemSlug, versionSlug) {
-  const params = new URLSearchParams({ slug: stemSlug })
-  if (versionSlug) params.set('version', versionSlug)
-  const { files } = await stemsFetch(`/api/stems?${params}`)
-  return (files ?? []).map(f => f.name)
+  return (await statStemFiles(stemSlug, versionSlug)).map(f => f.name)
 }
 
 /** Delete specific files from one version folder. */
