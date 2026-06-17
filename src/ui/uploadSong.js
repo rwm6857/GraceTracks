@@ -12,6 +12,7 @@ import {
 } from '../lib/versions.js'
 import {
   listStemFiles,
+  statStemFiles,
   deleteStemFiles,
   deleteVersionStems,
   deleteSongStems,
@@ -67,6 +68,37 @@ function resetState() {
   songVersions = []
   existingFiles = {}
   existingSeq++
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+// Poll the version folder until the named files no longer appear. R2 is strongly
+// consistent so this usually passes on the first check; the retries just absorb
+// any propagation hiccup. Throws if they never clear.
+async function waitUntilGone(stemSlug, versionSlug, names, { tries = 8, delayMs = 350 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const present = await statStemFiles(stemSlug, versionSlug)
+    if (!present.some(f => names.includes(f.name))) return
+    await sleep(delayMs)
+  }
+  throw new Error('Timed out waiting for the old stem to delete — try again')
+}
+
+// Confirm a freshly-uploaded object is present at the expected byte size (R2
+// stores the body verbatim, so the stored size must equal what we sent — a
+// mismatch means a partial/failed write). Throws if it can't be confirmed.
+async function confirmUploaded(stemSlug, versionSlug, name, expectedSize, { tries = 8, delayMs = 350 } = {}) {
+  for (let i = 0; i < tries; i++) {
+    const f = (await statStemFiles(stemSlug, versionSlug)).find(x => x.name === name)
+    if (f) {
+      if (expectedSize && f.size !== expectedSize) {
+        throw new Error(`Uploaded ${name} size mismatch on server (${f.size} vs ${expectedSize} bytes)`)
+      }
+      if (f.size > 0) return f.size
+    }
+    await sleep(delayMs)
+  }
+  throw new Error(`Could not confirm ${name} on the server after upload`)
 }
 
 // Bump the song's cache-bust token (best effort) so the mixer re-fetches stems
@@ -843,7 +875,24 @@ export async function renderUploadSong(container, user) {
       let ext = file.name.split('.').pop().toLowerCase()
 
       try {
-        // Convert WAV → M4A where the browser supports it; fall back to WAV.
+        // 1–2. Replace = delete first, then write — never overwrite. Overwriting
+        // an existing R2 object corrupts the stored bytes (confirmed: the same
+        // bytes written to a fresh key are fine, an overwrite is not). Delete
+        // every existing file for this track (canonical name + any alias/other
+        // extension) and wait until R2 confirms they're gone, leaving an empty
+        // key. New-song / new-version uploads have nothing here, so this is a
+        // no-op for them.
+        const existing = existingFiles[track.id] ?? []
+        if (existing.length > 0) {
+          tileState[track.id].status = 'deleting'
+          renderTile(track)
+          await deleteStemFiles(stemSlug, versionSlug, existing)
+          await waitUntilGone(stemSlug, versionSlug, existing)
+          existingFiles[track.id] = []
+        }
+
+        // 3. Convert WAV → M4A where the browser supports it; fall back to WAV,
+        //    then rename to the instrument slot.
         if (ext === 'wav' && convertWav) {
           tileState[track.id].status = 'converting'
           renderTile(track)
@@ -856,11 +905,12 @@ export async function renderUploadSong(container, user) {
             ext = 'wav'
           }
         }
+        const uploadedName = `${track.id}.${ext}`
 
         tileState[track.id].status = 'uploading'
         renderTile(track)
 
-        // 1. Get presigned URL
+        // 4a. Get presigned URL for the now-empty key.
         const presignRes = await fetch('/api/presign', {
           method: 'POST',
           headers: {
@@ -891,7 +941,7 @@ export async function renderUploadSong(container, user) {
 
         const { url } = await presignRes.json()
 
-        // 2. Upload file directly to R2
+        // 4b. Upload file directly to R2.
         const uploadRes = await fetch(url, {
           method: 'PUT',
           headers: { 'Content-Type': AUDIO_TYPES[ext] ?? 'application/octet-stream' },
@@ -900,21 +950,9 @@ export async function renderUploadSong(container, user) {
 
         if (!uploadRes.ok) throw new Error(`Upload failed (${uploadRes.status})`)
 
-        // When replacing, remove stale siblings left at an old name/extension
-        // (e.g. drums.wav after uploading drums.m4a, or an aliased drum.m4a) —
-        // the mixer probes m4a-first and aliases, so a leftover would shadow
-        // the new file. Best effort: a failure leaves an extra file behind,
-        // not a broken song.
-        const uploadedName = `${track.id}.${ext}`
-        const stale = (existingFiles[track.id] ?? []).filter(n => n !== uploadedName)
-        if (stale.length > 0) {
-          try {
-            await deleteStemFiles(stemSlug, versionSlug, stale)
-          } catch (cleanupErr) {
-            console.warn(`[GraceTracks] could not remove old ${track.id} files:`, cleanupErr)
-          }
-          existingFiles[track.id] = [uploadedName]
-        }
+        // 5. Confirm the new object actually landed at the right size.
+        await confirmUploaded(stemSlug, versionSlug, uploadedName, file.size)
+        existingFiles[track.id] = [uploadedName]
 
         tileState[track.id].status = 'done'
         renderTile(track)
