@@ -32,13 +32,13 @@ const TRACKS = [
   { id: 'drums',   label: 'Drums' },
   { id: 'perc',    label: 'Percussion' },
   { id: 'bass',    label: 'Bass' },
-  { id: 'elec',    label: 'Electric Guitar' },
-  { id: 'keys',    label: 'Keys / Piano' },
+  { id: 'elec',    label: 'Elec' },
+  { id: 'keys',    label: 'Keys' },
   { id: 'synth',   label: 'Synth' },
   { id: 'vox',     label: 'Vocals' },
   { id: 'strings', label: 'Strings' },
   { id: 'md',      label: 'MD' },
-  { id: 'click',   label: 'Click Track' },
+  { id: 'click',   label: 'Click' },
   { id: 'ambient', label: 'Ambient' },
 ]
 

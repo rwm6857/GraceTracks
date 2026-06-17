@@ -5,7 +5,7 @@ import { renderUploadSong } from './ui/uploadSong.js'
 import { renderRegisterSong } from './ui/registerSong.js'
 import { createNavbar } from './ui/navbar.js'
 import { initTheme } from './lib/theme.js'
-import { getUser, onAuthStateChange } from './lib/auth.js'
+import { getUser, onAuthStateChange, isEditorPlus } from './lib/auth.js'
 import { VERSION_RE } from './lib/versions.js'
 
 const app = document.getElementById('app')
@@ -130,6 +130,12 @@ async function render() {
   }
 }
 
+// Identity for auth-change gating: who is signed in + whether they're an editor.
+// A token refresh keeps both the same, so it won't trigger a page rebuild.
+function authKey(user) {
+  return user ? `${user.id}:${isEditorPlus(user)}` : 'anon'
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
   initTheme()
@@ -140,13 +146,24 @@ async function boot() {
   // Resolve initial auth state
   _currentUser = await getUser()
   _navbar.setUser(_currentUser)
+  let _authKey = authKey(_currentUser)
 
-  // Reactively update navbar on auth changes; re-render upload page if needed
+  // Reactively update the navbar on auth changes. Only the editor pages
+  // (upload/register) gate on auth, so we rebuild them only when the editor
+  // status actually changes — NOT on a token refresh or the initial-session
+  // echo for the same user. Re-rendering on every event would tear down the
+  // upload form mid-edit (and abort an in-flight submit, since getSession()
+  // can itself trigger a TOKEN_REFRESHED event).
   onAuthStateChange((user) => {
     _currentUser = user
     _navbar.setUser(user)
 
-    // If upload page is visible, re-render it with new auth context
+    const nextKey = authKey(user)
+    if (nextKey === _authKey) return
+    _authKey = nextKey
+
+    // Editor context changed — re-render the visible editor page so it reflects
+    // the new access (e.g. show the form after sign-in, or the denied message).
     if (_uploadEl && !_uploadEl.hidden) {
       _uploadEl.remove()
       _uploadEl = null
@@ -154,7 +171,6 @@ async function boot() {
       render()
     }
 
-    // Same for the register page
     if (_registerEl && !_registerEl.hidden) {
       _registerEl.remove()
       _registerEl = null

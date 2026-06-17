@@ -36,6 +36,15 @@ while reloads/back-forward restore the prior song+version selection.
   link, corner delete/remove buttons, version-name input, confirm modal,
   `.gc-navlink` font-weight.
 
+**Follow-up fixes (same PR #68)**:
+- Fixed the upload-submit "nothing happens" bug: the auth listener rebuilt the
+  upload page on *every* auth event. `getSession()` during submit can trigger a
+  TOKEN_REFRESHED event, which tore down the in-flight page and reset the form.
+  Now `main.js` only rebuilds editor pages when the editor status actually
+  changes (gated on `authKey(user)`), not on token refresh / initial-session.
+- Shortened upload-tile labels: "Electric Guitar"→"Elec", "Keys / Piano"→"Keys",
+  "Click Track"→"Click".
+
 ### 2026-06-15 — Fix: replacements corrupt stems (overwrite → delete-then-write)
 
 **Agent**: Claude (claude-opus-4-8)
