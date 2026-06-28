@@ -432,12 +432,12 @@ they inherit the theme. Lucide still backs `click`/`ambient`/`master` and all tr
 icons.
 
 **Changes**:
-- `X32-icons/*.bmp` — source bitmaps (from github.com/mamarguerat/behringer-icons, GPL-3.0).
+- `X32-icons/*.bmp` — source bitmaps (from github.com/mamarguerat/behringer-icons, Apache-2.0).
 - `scripts/convert-x32-icons.sh` — reproducible potrace pipeline (BMP → currentColor SVG).
-- `src/assets/channels/*.svg` — 8 vendored instrument icons + `ATTRIBUTION.md` (GPL-3.0).
+- `src/assets/channels/*.svg` — 8 vendored instrument icons + `ATTRIBUTION.md` (Apache-2.0).
 - `src/ui/icons.js` — `channelIcon()` returns the X32 SVG (Vite `?raw` import, class
   injected) for the 8 instruments; falls back to Lucide for click/ambient/master.
-- License is compatible: GraceTracks is GPL-3.0, same as the icon source.
+- License is compatible: GraceTracks is Apache-2.0, same as the icon source.
 
 **Build/verify**: `npm run build` clean; `npm test` 21/21; rendered preview confirmed all 8
 trace cleanly on the dark theme.
