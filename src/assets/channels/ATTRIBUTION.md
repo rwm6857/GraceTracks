@@ -7,7 +7,7 @@ icon set**:
 - Source: https://github.com/mamarguerat/behringer-icons
 - Original BMP icons & naming: Patrick-Gilles Maillot
 - SVG packaging: mamarguerat
-- License: **GPL-3.0** (same license as GraceTracks)
+- License: **Apache-2.0** (same license as GraceTracks)
 
 These SVGs were produced by vectorising the source 64×64 BMPs with `potrace`
 (see `scripts/convert-x32-icons.sh`) and rewriting the fill to `currentColor`

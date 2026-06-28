@@ -37,7 +37,7 @@ import {
   Trash2,
 } from 'lucide'
 
-// X32 scribble-strip instrument icons (Behringer-icons, GPL-3.0; traced from the
+// X32 scribble-strip instrument icons (Behringer-icons, Apache-2.0; traced from the
 // original BMPs to currentColor SVGs — see src/assets/channels/ATTRIBUTION.md).
 import drumsSvg from '../assets/channels/drums.svg?raw'
 import percSvg from '../assets/channels/perc.svg?raw'
