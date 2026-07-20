@@ -812,6 +812,41 @@ policy already permits the `has_stems`/`gracetracks_url` reset.
 
 ---
 
+### 2026-07-20 — Migrate to Signal Blue palette
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/gracetracks-signal-blue-myw25x`
+**Status**: Completed
+
+**Summary**: Migrated GraceTracks from the warm worship palette to the Signal
+Blue palette, matching the GraceChords migration (PR #427). Theming is fully
+centralized in `--gc-*` CSS custom properties (verbatim token set shared with
+GraceChords), so this was a value-only swap — token names unchanged, so every
+reference re-themes globally. Channel-strip colors (`CHANNEL_COLORS` + meter
+thresholds in `src/ui/mixer.js`) and functional status colors
+(success/warning/danger, plus the industry-convention mute-red / solo-yellow /
+done-green in `components.css`) were left untouched.
+
+**Changes**:
+- `src/styles/tokens.css` — value-only swap of accent, surfaces, text,
+  separator, selection-bg, and shadows in both light and dark. Added
+  `--gc-text-accent` (light `#15619A`, dark `#6FB6EA`) for AA-contrast links and
+  re-pointed `--gc-link` at it. Re-tinted warm shadows to cool-neutral
+  `rgba(20, 28, 38, α)`.
+- `index.html` + `public/manifest.webmanifest` — PWA chrome color `#100e0b` →
+  new dark bg `#14171A` (default theme stays dark).
+- `src/audio/stream/streamEngine.js` — re-themed the hardcoded warm hexes in the
+  stream-log debug overlay to Signal Blue dark equivalents.
+- `scripts/generate-icons.js` — updated placeholder-icon color constants to
+  Signal Blue (PNGs not regenerated here — `canvas` native dep can't build in
+  this environment; icons are being replaced separately).
+
+**Verify**: `npm test` 66/66; `npm run build` clean. Grepped the working tree —
+no old warm brand/neutral hex remains outside the whitelisted channel-strip
+colors.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

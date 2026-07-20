@@ -4,8 +4,8 @@
   "description": "Stem-based practice mixer for worship musicians",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#100e0b",
-  "theme_color": "#100e0b",
+  "background_color": "#14171A",
+  "theme_color": "#14171A",
   "orientation": "any",
   "icons": [
     {
