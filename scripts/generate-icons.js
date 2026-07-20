@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
+ * DEPRECATED — do not run. The shipped icons under public/icons/ are now the
+ * Signal Blue "GC" brand mark (rasterized from the shared brand master; see
+ * public/favicon.svg). Running this would overwrite them with a placeholder.
+ * Kept only for reference.
+ *
  * Generates placeholder PWA icons for GraceTracks.
- * Dark background (#1a1612) with amber "GT" text (#b8610a) in a bold style.
+ * Dark background (#1E2227) with Signal Blue "GT" text (#4EA6E6) in a bold style.
  * Run once: node scripts/generate-icons.js
  */
 const { createCanvas } = require('canvas')
@@ -9,8 +14,8 @@ const fs = require('fs')
 const path = require('path')
 
 const SIZES = [192, 512]
-const BG = '#1a1612'
-const FG = '#b8610a'
+const BG = '#1E2227'
+const FG = '#4EA6E6'
 const OUT_DIR = path.join(__dirname, '..', 'public', 'icons')
 
 fs.mkdirSync(OUT_DIR, { recursive: true })
@@ -25,7 +30,7 @@ for (const size of SIZES) {
 
   // Rounded rect inset (subtle border)
   const r = size * 0.12
-  ctx.fillStyle = '#2a211a'
+  ctx.fillStyle = '#2A3036'
   ctx.beginPath()
   ctx.moveTo(r, 0)
   ctx.lineTo(size - r, 0)

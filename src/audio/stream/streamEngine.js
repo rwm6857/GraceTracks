@@ -76,22 +76,22 @@ export class StreamAudioEngine {
     if (this._diagWrap) return
     const wrap = document.createElement('div')
     wrap.style.cssText = 'position:fixed;top:6px;right:6px;z-index:99999;font:11px ui-monospace,monospace;' +
-      'background:rgba(16,14,11,.92);color:#f0ebe3;border:1px solid #2e261e;border-radius:8px;max-width:92vw'
+      'background:rgba(20,23,26,.92);color:#E8ECF0;border:1px solid #2A3036;border-radius:8px;max-width:92vw'
     const bar = document.createElement('div')
     bar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 6px'
     const toggle = document.createElement('button')
-    toggle.style.cssText = 'background:none;border:none;color:#d4843a;font:inherit;cursor:pointer;padding:2px 4px'
+    toggle.style.cssText = 'background:none;border:none;color:#4EA6E6;font:inherit;cursor:pointer;padding:2px 4px'
     const count = document.createElement('span')
     count.textContent = '0'
     const setLabel = () => { toggle.textContent = `${this._diagExpanded ? '▾' : '▸'} stream log` }
     const copy = document.createElement('button')
     copy.textContent = 'Copy'
-    copy.style.cssText = 'background:#231e18;border:1px solid #2e261e;color:#f0ebe3;font:inherit;border-radius:6px;padding:3px 8px;cursor:pointer'
+    copy.style.cssText = 'background:#242A30;border:1px solid #2A3036;color:#E8ECF0;font:inherit;border-radius:6px;padding:3px 8px;cursor:pointer'
     const hide = document.createElement('button')
     hide.textContent = '×'
-    hide.style.cssText = 'background:none;border:none;color:#a89484;font-size:14px;cursor:pointer;padding:0 4px'
+    hide.style.cssText = 'background:none;border:none;color:#AEB6BE;font-size:14px;cursor:pointer;padding:0 4px'
     const body = document.createElement('div')
-    body.style.cssText = 'display:none;max-height:38vh;max-width:92vw;overflow:auto;white-space:pre-wrap;padding:6px 8px;border-top:1px solid #2e261e'
+    body.style.cssText = 'display:none;max-height:38vh;max-width:92vw;overflow:auto;white-space:pre-wrap;padding:6px 8px;border-top:1px solid #2A3036'
 
     this._diagExpanded = false
     setLabel()
