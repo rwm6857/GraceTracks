@@ -847,6 +847,36 @@ colors.
 
 ---
 
+### 2026-07-20 — Adopt Signal Blue "GC" favicon / PWA icons
+
+**Agent**: Claude (claude-opus-4-8)
+**Branch**: `claude/gracetracks-signal-blue-myw25x`
+**Status**: Completed
+
+**Summary**: Replaced the placeholder "GT" app icons with the shared Signal Blue
+"GC" brand mark that was published to the GraceChords repo (`NEW ASSETS/`,
+`apps/web/public/icons/v2/`). Per owner confirmation, GraceTracks adopts the same
+brand mark rather than a distinct "GT" variant. Sourced from the dark full-bleed
+1024px master; the dark `#1E2227` field matches the Signal Blue dark surface, so
+it sits naturally in the dark-default app.
+
+**Changes**:
+- `public/favicon.svg` — vector master (dark "GC" mark).
+- `public/favicon.ico` — 16/32/48 multi-res.
+- `public/icons/` — `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180),
+  `favicon-16x16.png`, `favicon-32x32.png` (all full-bleed "any"); plus
+  `icon-maskable-512.png` (logo inset to the ~80% safe zone for Android masking).
+- `index.html` — favicon bundle links (svg + png 16/32 + ico + apple-touch).
+- `public/manifest.webmanifest` — icons restructured to full-bleed `any` (192/512)
+  + dedicated `maskable` (512), replacing the old `any maskable` placeholders.
+- `scripts/generate-icons.js` — marked deprecated (placeholder generator that
+  would clobber the real brand icons if re-run).
+
+**Verify**: `npm run build` clean (precache 18 → 24 entries, all favicon assets
+emitted to `dist/`); `npm test` 66/66.
+
+---
+
 ## Future Work Tracking
 
 Use this log to document:

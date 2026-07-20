@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 /**
+ * DEPRECATED — do not run. The shipped icons under public/icons/ are now the
+ * Signal Blue "GC" brand mark (rasterized from the shared brand master; see
+ * public/favicon.svg). Running this would overwrite them with a placeholder.
+ * Kept only for reference.
+ *
  * Generates placeholder PWA icons for GraceTracks.
  * Dark background (#1E2227) with Signal Blue "GT" text (#4EA6E6) in a bold style.
  * Run once: node scripts/generate-icons.js
